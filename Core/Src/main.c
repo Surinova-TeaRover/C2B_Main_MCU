@@ -153,9 +153,16 @@ float Left_Encoder,Right_Encoder, Pitch_Encoder, Flap_Encoder;
 uint16_t Left_Encoder_Conv,Right_Encoder_Conv, Pitch_Encoder_Conv, Flap_Encoder_Conv;
 float Left_Encoder_Conv_Angle,Right_Encoder_Conv_Angle, Pitch_Encoder_Conv_Angle, Flap_Encoder_Conv_Angle;
 	uint8_t Flap_Sensed_Temp = 1;
-	uint16_t Volt=0;
+	float Volt=0;
 	float New=0;
 /*																TOP SENSOR DEFINITIONS																							*/
+
+
+float Macro_Speed = 0, Width_Speed=0,Macro_Speed_Temp = 0, Width_Speed_Temp=0, Left_Macro_Speed=0, Right_Macro_Speed=0, Left_Macro_Speed_Temp=0, Right_Macro_Speed_Temp=0;
+
+
+
+
 
 /* USER CODE END PV */
 
@@ -181,6 +188,7 @@ void Arm_Controls (void);
 void Flap_Sensing(void);
 void Reboot (int Axis);
 void Clear_Errors(void);
+void Rover_Resizer (void);
 
 /* USER CODE END PFP */
 
@@ -336,7 +344,7 @@ int main(void)
 //  MX_UART5_Init();
   MX_TIM14_Init();
   /* USER CODE BEGIN 2 */
-	BUZZER_ON;
+	BUZZER_OFF;
 	
 	HAL_CAN_Start(&hcan2);
 	HAL_CAN_ActivateNotification(&hcan2 , CAN_IT_RX_FIFO0_MSG_PENDING);
@@ -352,7 +360,7 @@ int main(void)
 	HAL_UART_Receive_IT(&huart5,BT_Rx ,sizeof(BT_Rx));
 //	HAL_UART_Receive_IT(&huart4,Enc_Rx ,sizeof(Enc_Rx));
 //	Start_Calibration_For( 2 , 3 , 1); HAL_Delay(10000);
-	HAL_Delay(2000);
+//	HAL_Delay(2000);
 //	for(uint8_t i=1; i < 5; i++){Start_Calibration_For( i , 8 , 5); HAL_Delay(100);}
 	for(uint8_t i=12; i < 19; i++){Start_Calibration_For( i , 8 , 5); HAL_Delay(100);}
 	
@@ -360,7 +368,6 @@ int main(void)
 		{
 			Clear_Errors();
 			HAL_Delay(2000);
-//			clr++;
 		}
 	
 	
@@ -369,7 +376,7 @@ int main(void)
 	
 //	HAL_TIM_Base_Start_IT(&htim14); 
 //	Start_Calibration_For( 18 , 8 , 5);
-	BUZZER_OFF;
+	BUZZER_ON;
 //	Voltage[0]=0;
 //		Voltage[1]=0;
 //		Voltage[2]=0x48;
@@ -799,7 +806,7 @@ void Drive_Wheel_Controls(void)
 {
 	/* Actuates the Drive Wheels only when the Steering Resets have been completed and the Bluetooth is in Connection. */
 
-	if ( (Speed!= 0) && (BT_State))
+	if ( (Speed!= 0) && (BT_State) && Mode != 2 )
 	{
 		if ( Joystick_Temp != Joystick )
 		{
@@ -917,6 +924,8 @@ void Shearing_Motors (void)
 
 void Skid_Turning ( void )
 {
+	if ( Mode != 2 )
+	{
 	Turn_Ratio = Pot_Angle - 90;
 	Reduced_Speed = Vel_Limit - ((fabs(Turn_Ratio)) * (Vel_Limit / 100 ));
 	
@@ -981,35 +990,23 @@ void Skid_Turning ( void )
 		}
 	Turn_Temp = Turn_Ratio;
 	Reduced_Speed_Temp = Reduced_Speed;
-		Joy_New_Temp = Joystick ;
+	Joy_New_Temp = Joystick ;
 	}
 	
 	
 	
-	
+ }
 	
 }
 void Set_Motor_Torque ( uint8_t Axis , float Torque )
 {
 	
-	Torque = (Axis==4) || (Axis==2)  ? -Torque : Torque ;
+	Torque = (Axis==1) || (Axis==2)  ? -Torque : Torque ;
 
 	
-	if ( Joystick == 4 ) // Zero Turn
-	{
-//	Torque = (Axis==4) || (Axis==2)  ? -Torque : Torque ;	
-	//Torque = (Axis==1) || (Axis==2) ? -Torque : Torque ;	
-		//Torque = -Torque;
-		Torque = (Axis==3) || (Axis==4) ? Torque : -Torque ;	
-//		Torque = -Torque;
-	}
+	if ( Joystick == 4 ) 		 {Torque = (Axis==3) || (Axis==4) ? Torque : -Torque ;	}
+	else if ( Joystick == 3 ){Torque = (Axis==3) || (Axis==4) ? -Torque : Torque ;	}
 	
-	else if ( Joystick == 3 )
-	{
-//	Torque = (Axis==4) || (Axis==2)  ? -Torque : Torque ;	
-	Torque = (Axis==3) || (Axis==4) ? -Torque : Torque ;	
-	
-	}
 	/*
 	if(Joystick > 2)
 	{
@@ -1261,6 +1258,89 @@ void Clear_Errors(void)
 		if ( i != 5 ){ if ( Axis_State[i] != 8 ){Reboot(i);} }
 	}
 	HAL_Delay(2000);
+}
+
+void Rover_Resizer (void)
+{
+	
+	if ( Mode == 2 )
+	{
+		if ( Joystick_Temp != Joystick )
+		{
+//			switch ( Joystick )
+//			{
+//				case 0 : Set_Motor_Velocity ( 8 , 0 ); Set_Motor_Velocity ( 9 , 0 ); Set_Motor_Velocity ( 10 , 0 );  break;
+//				case 1 : Set_Motor_Velocity ( 9 , 10 );  Set_Motor_Velocity ( 10 , 10 );   break;
+//				case 2 : Set_Motor_Velocity ( 9 , -10 ); Set_Motor_Velocity ( 10 , -10 );  break;
+//				case 3 : for( uint8_t i=1; i < 5; i++ ) { Set_Motor_Torque(i, 5); } Set_Motor_Velocity ( 8 , 10 );    break;
+//				case 4 : Set_Motor_Velocity ( 9 , -10 ); Set_Motor_Velocity ( 10 , -10 );  break;
+//				default: break;
+//			}
+			
+			switch ( Joystick )
+			{
+				case 0 : Set_Motor_Velocity ( 8 , 0 ); Set_Motor_Velocity ( 9 , 0 ); Set_Motor_Velocity ( 10 , 0 );for( uint8_t i=1; i < 5; i++ ) { Set_Motor_Torque(i, 0); }  break;
+				case 1 : Macro_Speed =  10;   break;
+				case 2 : Macro_Speed = -10;   break;
+				case 3 : Width_Speed =  10;   break;
+				case 4 : Width_Speed = -10;   break;
+				default: break;
+			}
+			   Left_Macro_Speed = Right_Macro_Speed = Macro_Speed;
+			
+			
+			Joystick_Temp = Joystick;
+		}
+		
+		
+/*					          		Course Correction														*/		
+			/*
+			 Encoder Checks
+			*/
+			if ( Left_Macro_Speed_Temp != Left_Macro_Speed )
+			{
+				Set_Motor_Velocity ( 9 , Left_Macro_Speed );
+				Left_Macro_Speed_Temp = Left_Macro_Speed ;
+			}
+			
+			
+			/*
+			 Encoder Checks
+			*/
+			if ( Right_Macro_Speed_Temp != Right_Macro_Speed )
+			{
+				Set_Motor_Velocity ( 10 , Right_Macro_Speed );
+				Right_Macro_Speed_Temp = Right_Macro_Speed ;
+			}
+			
+			
+			/*
+			 Encoder Checks
+			*/
+			if ( Width_Speed_Temp != Width_Speed )
+			{
+				if(Width_Speed != 0)
+				{
+				 for( uint8_t i=1; i < 5; i++ ) { Set_Motor_Torque(i, 5); }
+				 Set_Motor_Velocity ( 8 , Width_Speed );
+				}
+				
+				else 
+				{
+				 Set_Motor_Velocity ( 8 , Width_Speed );
+				 for( uint8_t i=1; i < 5; i++ ) { Set_Motor_Torque(i, 0); }
+				}
+				Width_Speed_Temp = Width_Speed ;
+			}
+	
+/*					          		Course Correction														*/		
+
+	
+	
+	}
+
+
+
 }
 
 
