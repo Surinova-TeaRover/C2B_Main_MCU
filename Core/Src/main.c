@@ -117,6 +117,8 @@ uint8_t RxData[8],  RxBuff[8];
 uint32_t TxMailbox;
 uint16_t Received_Node_Id=0, Received_Command_Id=0,Node_Id[20];
 float Motor_Velocity[20];
+uint8_t Motor_Error[20], Encoder_Error[20] , Motor_Current[20];
+uint8_t Axis_State[20] , Controller_Status[20], Error_Status[20];
 uint8_t Voltage[4];
 /*			CAN Variables      */
 
@@ -177,6 +179,9 @@ void Skid_Turning ( void );
 void UART_Reception ( void );
 void Arm_Controls (void);
 void Flap_Sensing(void);
+void Reboot (int Axis);
+void Clear_Errors(void);
+
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -270,19 +275,24 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
 	{
 		switch( Received_Command_Id )	
 		{
-			case HEARTBEAT:  							Node_Id[Received_Node_Id]++;  break; // Axis_State[Received_Node_Id] = RxData2[4];memcpy(&Error_Status[Received_Node_Id], RxData2, 4); Axis_State[Received_Node_Id] = RxData2[4];
+			case HEARTBEAT:  							Node_Id[Received_Node_Id]++;    Axis_State[Received_Node_Id] = RxData[4]; break;//memcpy(&Error_Status[Received_Node_Id], RxData2, 4); Axis_State[Received_Node_Id] = RxData2[4];
 			
 			case ENEST_ID:  							Motor_Velocity[Received_Node_Id]	= CAN_Reception(MSB); 							break;		
 
 			case SENS_EST:  							Motor_Velocity[Received_Node_Id]	= CAN_Reception(MSB); 				  		break;
 			
-	//		case MERR_ID:  								Motor_Error[Received_Node_Id]			= CAN_Reception(LSB); 							break;
-	//		
-	//		case ENERR_ID:  							Encoder_Error[Received_Node_Id]		= CAN_Reception(LSB); 					 		break;
-	//		
-	//		case SNERR_ID:  							Encoder_Error[Received_Node_Id]		= CAN_Reception(LSB); 					  	break;
+			case MERR_ID:  								Motor_Error[Received_Node_Id]			= CAN_Reception(MSB); 							break;
 			
-	//		case VOLTAGE: 								memcpy(&Voltage[Received_Node_Id], RxData, 4);	  break;
+			case ENERR_ID:  							Encoder_Error[Received_Node_Id]		= CAN_Reception(MSB); 					 		break;
+			
+			case SNERR_ID:  							Encoder_Error[Received_Node_Id]		= CAN_Reception(LSB); 					  	break;
+			
+			case IQM_ID:  								Motor_Current[Received_Node_Id]		= CAN_Reception(MSB); 					  	break;
+			
+			case VOLTAGE: 								memcpy(&Volt, RxData, 4);	  break;
+			
+//			case 0x261: Node_Id[19]++; break;
+//		  case 0x281: Node_Id[20]++; break;
 		
 			default: 																																													  break;
 
@@ -343,8 +353,20 @@ int main(void)
 //	HAL_UART_Receive_IT(&huart4,Enc_Rx ,sizeof(Enc_Rx));
 //	Start_Calibration_For( 2 , 3 , 1); HAL_Delay(10000);
 	HAL_Delay(2000);
-	for(uint8_t i=1; i < 5; i++){Start_Calibration_For( i , 8 , 5); HAL_Delay(100);}
+//	for(uint8_t i=1; i < 5; i++){Start_Calibration_For( i , 8 , 5); HAL_Delay(100);}
 	for(uint8_t i=12; i < 19; i++){Start_Calibration_For( i , 8 , 5); HAL_Delay(100);}
+	
+	for ( uint8_t i=1 ; i < 5 ; i++ )
+		{
+			Clear_Errors();
+			HAL_Delay(2000);
+//			clr++;
+		}
+	
+	
+	
+	
+	
 //	HAL_TIM_Base_Start_IT(&htim14); 
 //	Start_Calibration_For( 18 , 8 , 5);
 	BUZZER_OFF;
@@ -1214,6 +1236,34 @@ void Flap_Sensing(void)
 		}
 	}
 }
+
+void Reboot (int Axis)
+{
+	
+	
+			//	memcpy(TxData, &command_id, 4);		
+				TxHeader.DLC = 4;	
+				TxHeader.IDE = CAN_ID_STD;
+				TxHeader.RTR = CAN_RTR_DATA;
+				TxHeader.StdId = ( Axis <<5) | 0x016 ;	
+			HAL_CAN_AddTxMessage(&hcan2, &TxHeader, TxData, &TxMailbox);
+	HAL_Delay(1); 
+
+	//	if( axis_id < 19) {for (int i=0 ; i<loop_times ; i++ )	{	HAL_CAN_AddTxMessage(&hcan2, &TxHeader, TxData, &TxMailbox);HAL_Delay(20); } }
+	//	else { for (int i=0 ; i<loop_times ; i++ )	{	HAL_CAN_AddTxMessage(&hcan1, &TxHeader, TxData, &TxMailbox);			HAL_Delay(20);		}	}
+				
+}
+
+void Clear_Errors(void)
+{
+	for ( uint8_t i = 1 ; i < 12 ; i++)
+	{
+		if ( i != 5 ){ if ( Axis_State[i] != 8 ){Reboot(i);} }
+	}
+	HAL_Delay(2000);
+}
+
+
 
 /* USER CODE END 4 */
 
