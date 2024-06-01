@@ -362,7 +362,7 @@ int main(void)
 //	Start_Calibration_For( 2 , 3 , 1); HAL_Delay(10000);
 //	HAL_Delay(2000);
 //	for(uint8_t i=1; i < 5; i++){Start_Calibration_For( i , 8 , 5); HAL_Delay(100);}
-	for(uint8_t i=12; i < 19; i++){Start_Calibration_For( i , 8 , 5); HAL_Delay(100);}
+	for(uint8_t i=5; i < 11; i++){Start_Calibration_For( i , 8 , 5); HAL_Delay(100);}
 	
 	for ( uint8_t i=1 ; i < 5 ; i++ )
 		{
@@ -392,8 +392,10 @@ int main(void)
     /* USER CODE BEGIN 3 */
 //		UART_Reception();
 		Joystick_Reception();
-//		Drive_Wheel_Controls();
-//		Skid_Turning();
+		Drive_Wheel_Controls();
+	  Rover_Resizer();
+
+		Skid_Turning();
 		//Arm_Controls();
 //		Shearing_Motors();
 		
@@ -813,14 +815,16 @@ void Drive_Wheel_Controls(void)
 			switch (Joystick)
 			{
 				case 0 :   Torque =  NULL;  							break;								
-				case 1 :   Torque =	-DRIVE_TORQUE; 				break; 
-				case 2 :   Torque = DRIVE_TORQUE;					break; 
+				case 1 :   Torque =	DRIVE_TORQUE; 				break; 
+				case 2 :   Torque = -DRIVE_TORQUE;					break; 
 				case 3 :   Torque =	DRIVE_TORQUE;					break; 
 				case 4 :   Torque = DRIVE_TORQUE;					break;
 				default :																	break;
 			}
 //			for ( uint8_t i = 1 ; i < 5 ; i++ ){ Set_Motor_Torque ( i , Torque );}
-			
+
+	
+	
 			if ( Torque != 0 && Prev_Torque == 0 )
 			{
 				if ( Idle_Wheels) 
@@ -836,7 +840,7 @@ void Drive_Wheel_Controls(void)
 			Joystick_Temp = Joystick;
 			Prev_Torque = Torque;
 			}
-//			Joystick_Temp = Joystick;
+			Joystick_Temp = Joystick;
 			
 		//	Pot_Angle = Pot_Angle > 170 ? Pot_Angle-10 : Pot_Angle < 10 ? Pot_Angle+ 10 : Pot_Angle+5; // dummy line
 		}
@@ -880,7 +884,7 @@ void Drive_Wheel_Controls(void)
 		}
 	
 	Vel_Limit_Temp = Vel_Limit;
-	}
+	
 	
 	if ( (!BT_State ) && Joystick != 0 )
 	{
@@ -889,6 +893,7 @@ void Drive_Wheel_Controls(void)
 	}
 	
 }
+	}
 void Shearing_Motors (void)
 {
 		if ( Shearing_Temp != Shearing )
@@ -1001,12 +1006,13 @@ void Skid_Turning ( void )
 void Set_Motor_Torque ( uint8_t Axis , float Torque )
 {
 	
-	Torque = (Axis==1) || (Axis==2)  ? -Torque : Torque ;
+	Torque = (Axis==1) || (Axis==2) || (Axis==3)  ? -Torque : Torque ;
 
-	
-	if ( Joystick == 4 ) 		 {Torque = (Axis==3) || (Axis==4) ? Torque : -Torque ;	}
-	else if ( Joystick == 3 ){Torque = (Axis==3) || (Axis==4) ? -Torque : Torque ;	}
-	
+	if(Mode != 2)
+	{
+	if ( Joystick == 4 ) 		 {Torque = (Axis==3) || (Axis==4) ? -Torque : Torque ;	}
+	else if ( Joystick == 3 ){Torque = (Axis==3) || (Axis==4) ? Torque : -Torque ;	}
+	}
 	/*
 	if(Joystick > 2)
 	{
@@ -1279,11 +1285,11 @@ void Rover_Resizer (void)
 			
 			switch ( Joystick )
 			{
-				case 0 : Set_Motor_Velocity ( 8 , 0 ); Set_Motor_Velocity ( 9 , 0 ); Set_Motor_Velocity ( 10 , 0 );for( uint8_t i=1; i < 5; i++ ) { Set_Motor_Torque(i, 0); }  break;
-				case 1 : Macro_Speed =  10;   break;
-				case 2 : Macro_Speed = -10;   break;
-				case 3 : Width_Speed =  10;   break;
-				case 4 : Width_Speed = -10;   break;
+				case 0 : Macro_Speed = 0; Width_Speed=0; break;//Set_Motor_Velocity ( 8 , 0 ); Set_Motor_Velocity ( 9 , 0 ); Set_Motor_Velocity ( 10 , 0 );for( uint8_t i=1; i < 5; i++ ) { Set_Motor_Torque(i, 0); }  break;
+				case 1 : Macro_Speed =  -20;   break;
+				case 2 : Macro_Speed = 20;   break;
+				case 3 : Width_Speed =  20;   break;
+				case 4 : Width_Speed = -20;   break;
 				default: break;
 			}
 			   Left_Macro_Speed = Right_Macro_Speed = Macro_Speed;
