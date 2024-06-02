@@ -384,11 +384,11 @@ int main(void)
 //	for(uint8_t i=1; i < 5; i++){Start_Calibration_For( i , 8 , 5); HAL_Delay(100);}
 	for(uint8_t i=5; i < 11; i++){Start_Calibration_For( i , 8 , 5); HAL_Delay(10);}
 	
-	for ( uint8_t i=1 ; i < 10 ; i++ )
-		{
-			Clear_Errors();
-//			HAL_Delay(2000);
-		}
+//	for ( uint8_t i=1 ; i < 10 ; i++ )
+//		{
+//			Clear_Errors();
+////			HAL_Delay(2000);
+//		}
 		
 	Width_Read_1 = 	Flash_Read(Width_Address_1);
 	Width_Read_2 = 	Flash_Read(Width_Address_2);
@@ -433,10 +433,10 @@ int main(void)
 			
 			
 			
-		Joystick_Reception();
-		Drive_Wheel_Controls();
-	  Rover_Resizer();
-		Skid_Turning();
+//		Joystick_Reception();
+//		Drive_Wheel_Controls();
+//	  Rover_Resizer();
+//		Skid_Turning();
 		//Arm_Controls();
 //		Shearing_Motors();
 		
@@ -973,8 +973,9 @@ void Skid_Turning ( void )
 	if ( Mode != 2 )
 	{
 	Turn_Ratio = Pot_Angle - 90;
-	Reduced_Speed = Vel_Limit - ((fabs(Turn_Ratio)) * (Vel_Limit / 100 ));
-	
+	//Reduced_Speed = Vel_Limit - ((fabs(Turn_Ratio)) * (Vel_Limit / 100 ));
+	Reduced_Speed = (fabs(Turn_Ratio)) / 100 * Vel_Limit;
+		
 	if ( Turn_Ratio != Turn_Temp || Reduced_Speed != Reduced_Speed_Temp|| Joy_New_Temp != Joystick )// fabs(Motor_Velocity[4]) < Reduced_Speed - 2 || fabs(Motor_Velocity[4]) < Reduced_Speed + 2 || fabs(Motor_Velocity[1]) < Reduced_Speed - 2 || fabs(Motor_Velocity[1]) > Reduced_Speed + 2    )
 	{
 		if ( Reduced_Speed > 20 )

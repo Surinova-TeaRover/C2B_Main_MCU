@@ -249,7 +249,7 @@ void TIM8_TRG_COM_TIM14_IRQHandler(void)
 	{
 		if (Width_Int_Temp != Width_Int)
 		{
-			Flash_Write(Width_Address_1, Width_Int);
+	//		Flash_Write(Width_Address_1, Width_Int);
 			Flash_Write(Width_Address_2, Width_Int);
 			Width_Int_Temp = Width_Int;
 		}
