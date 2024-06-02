@@ -78,8 +78,8 @@
 	#define				ALL								2
 	#define 			Z									7//3
 	
-	#define					BUZZER_ON						HAL_GPIO_WritePin(Buzzer_1_GPIO_Port,Buzzer_1_Pin, SET);			HAL_GPIO_WritePin(Buzzer_2_GPIO_Port,Buzzer_2_Pin, SET);	  
-	#define					BUZZER_OFF					HAL_GPIO_WritePin(Buzzer_1_GPIO_Port,Buzzer_1_Pin, NULL);			HAL_GPIO_WritePin(Buzzer_2_GPIO_Port,Buzzer_2_Pin, NULL);	
+	#define					BUZZER_OFF						HAL_GPIO_WritePin(Buzzer_1_GPIO_Port,Buzzer_1_Pin, SET);			HAL_GPIO_WritePin(Buzzer_2_GPIO_Port,Buzzer_2_Pin, SET);	  
+	#define					BUZZER_ON					HAL_GPIO_WritePin(Buzzer_1_GPIO_Port,Buzzer_1_Pin, NULL);			HAL_GPIO_WritePin(Buzzer_2_GPIO_Port,Buzzer_2_Pin, NULL);	
 	#define					BUZZER_TOGGLE				HAL_GPIO_TogglePin(Buzzer_1_GPIO_Port,Buzzer_1_Pin );					HAL_GPIO_TogglePin(Buzzer_2_GPIO_Port,Buzzer_2_Pin);
 
 	#define					DRIVE_TORQUE				5
@@ -154,14 +154,16 @@ uint16_t Left_Encoder_Conv,Right_Encoder_Conv, Pitch_Encoder_Conv, Flap_Encoder_
 float Left_Encoder_Conv_Angle,Right_Encoder_Conv_Angle, Pitch_Encoder_Conv_Angle, Flap_Encoder_Conv_Angle;
 	uint8_t Flap_Sensed_Temp = 1;
 	float Volt=0;
-	float New=0;
+	float New=0;bool DRIVES_NO_ERROR_FLAG = SET;
 /*																TOP SENSOR DEFINITIONS																							*/
 
 
 float Macro_Speed = 0, Width_Speed=0,Macro_Speed_Temp = 0, Width_Speed_Temp=0, Left_Macro_Speed=0, Right_Macro_Speed=0, Left_Macro_Speed_Temp=0, Right_Macro_Speed_Temp=0;
 
-
-
+float Width_Abs=0;
+int Width_Int =0, Width_Int_Temp=0;
+uint32_t Width_Address_1 = 0x08008000, Width_Address_2 =0x0800C000 ;
+int Width_Read_1 = 0, Width_Read_2 = 0, Width_Stored_Value=0, Width_Total_Turns=0;
 
 
 /* USER CODE END PV */
@@ -189,11 +191,29 @@ void Flap_Sensing(void);
 void Reboot (int Axis);
 void Clear_Errors(void);
 void Rover_Resizer (void);
+void Error_Healing(void);
+void Drives_Error_Check(void);
+void Stop_Motors(void);
+
+extern void Flash_Erase(uint32_t address);
+extern void Flash_Write(uint32_t Address, int Data);
+int16_t Flash_Read(uint32_t address);
 
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+void Absolute_Position_Reception( uint8_t Node_Ids )
+{
+	switch ( Node_Ids )
+	{
+		case 8: memcpy(&Width_Abs,RxData, sizeof(float)); Width_Int = Width_Abs; break;
+		default: break;
+	
+	}
+	
+
+}
 float New_Sensor_Pos(float sensorvalue, float zero_pos)
 {
 float output;
@@ -285,7 +305,7 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
 		{
 			case HEARTBEAT:  							Node_Id[Received_Node_Id]++;    Axis_State[Received_Node_Id] = RxData[4]; break;//memcpy(&Error_Status[Received_Node_Id], RxData2, 4); Axis_State[Received_Node_Id] = RxData2[4];
 			
-			case ENEST_ID:  							Motor_Velocity[Received_Node_Id]	= CAN_Reception(MSB); 							break;		
+			case ENEST_ID:  							Motor_Velocity[Received_Node_Id]	= CAN_Reception(MSB); Absolute_Position_Reception (	Received_Node_Id );						break;		
 
 			case SENS_EST:  							Motor_Velocity[Received_Node_Id]	= CAN_Reception(MSB); 				  		break;
 			
@@ -344,7 +364,7 @@ int main(void)
 //  MX_UART5_Init();
   MX_TIM14_Init();
   /* USER CODE BEGIN 2 */
-	BUZZER_OFF;
+	BUZZER_ON;
 	
 	HAL_CAN_Start(&hcan2);
 	HAL_CAN_ActivateNotification(&hcan2 , CAN_IT_RX_FIFO0_MSG_PENDING);
@@ -362,21 +382,30 @@ int main(void)
 //	Start_Calibration_For( 2 , 3 , 1); HAL_Delay(10000);
 //	HAL_Delay(2000);
 //	for(uint8_t i=1; i < 5; i++){Start_Calibration_For( i , 8 , 5); HAL_Delay(100);}
-	for(uint8_t i=5; i < 11; i++){Start_Calibration_For( i , 8 , 5); HAL_Delay(100);}
+	for(uint8_t i=5; i < 11; i++){Start_Calibration_For( i , 8 , 5); HAL_Delay(10);}
 	
-	for ( uint8_t i=1 ; i < 5 ; i++ )
+	for ( uint8_t i=1 ; i < 10 ; i++ )
 		{
 			Clear_Errors();
-			HAL_Delay(2000);
+//			HAL_Delay(2000);
 		}
+		
+	Width_Read_1 = 	Flash_Read(Width_Address_1);
+	Width_Read_2 = 	Flash_Read(Width_Address_2);
+	
+	Width_Read_1 = Width_Read_1==-1 ? 0 : Width_Read_1;
+	Width_Read_2 = Width_Read_2==-1? 0 : Width_Read_2;
+
+	Width_Int_Temp= Width_Read_2;
+	Width_Stored_Value = Width_Read_1== 0 ? Width_Read_2 : Width_Read_2== 0 ? Width_Read_1 : Width_Read_2;
 	
 	
 	
 	
 	
-//	HAL_TIM_Base_Start_IT(&htim14); 
+	HAL_TIM_Base_Start_IT(&htim14); 
 //	Start_Calibration_For( 18 , 8 , 5);
-	BUZZER_ON;
+	BUZZER_OFF;
 //	Voltage[0]=0;
 //		Voltage[1]=0;
 //		Voltage[2]=0x48;
@@ -386,15 +415,27 @@ int main(void)
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
-  {		BT_State = BT_READ;
+  {		BT_State = BT_READ;Joystick_Reception();
+		Drives_Error_Check();
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
 //		UART_Reception();
+		
+		
+		if(DRIVES_NO_ERROR_FLAG)
+		{			
+		Drive_Wheel_Controls();
+//	  Rover_Resizer();
+		Skid_Turning();	
+		}
+	  else{Error_Healing();}
+			
+			
+			
 		Joystick_Reception();
 		Drive_Wheel_Controls();
 	  Rover_Resizer();
-
 		Skid_Turning();
 		//Arm_Controls();
 //		Shearing_Motors();
@@ -1259,7 +1300,7 @@ void Reboot (int Axis)
 
 void Clear_Errors(void)
 {
-	for ( uint8_t i = 1 ; i < 12 ; i++)
+	for ( uint8_t i = 1 ; i < 5 ; i++)
 	{
 		if ( i != 5 ){ if ( Axis_State[i] != 8 ){Reboot(i);} }
 	}
@@ -1286,10 +1327,10 @@ void Rover_Resizer (void)
 			switch ( Joystick )
 			{
 				case 0 : Macro_Speed = 0; Width_Speed=0; break;//Set_Motor_Velocity ( 8 , 0 ); Set_Motor_Velocity ( 9 , 0 ); Set_Motor_Velocity ( 10 , 0 );for( uint8_t i=1; i < 5; i++ ) { Set_Motor_Torque(i, 0); }  break;
-				case 1 : Macro_Speed =  -20;   break;
-				case 2 : Macro_Speed = 20;   break;
-				case 3 : Width_Speed =  20;   break;
-				case 4 : Width_Speed = -20;   break;
+				case 1 : Macro_Speed = -20;   break;
+				case 2 : Macro_Speed = 	20;   break;
+				case 3 : Width_Speed =  40;   break;
+				case 4 : Width_Speed = -40;   break;
 				default: break;
 			}
 			   Left_Macro_Speed = Right_Macro_Speed = Macro_Speed;
@@ -1323,6 +1364,12 @@ void Rover_Resizer (void)
 			/*
 			 Encoder Checks
 			*/
+			
+			Width_Total_Turns = Width_Stored_Value + Width_Int;
+			
+			Width_Speed = (( Width_Speed > 0) && Width_Total_Turns > 400 )? 0  : (( Width_Speed < 0) && Width_Total_Turns < 0) ? 0 : Width_Speed;
+			
+			
 			if ( Width_Speed_Temp != Width_Speed )
 			{
 				if(Width_Speed != 0)
@@ -1349,7 +1396,58 @@ void Rover_Resizer (void)
 
 }
 
+void Flash_Erase(uint32_t address)
+{
+    // Initialize the erase structure
+    FLASH_EraseInitTypeDef EraseInitStruct;
+    uint32_t SectorError;
 
+    // Fill EraseInitStruct
+    EraseInitStruct.TypeErase = FLASH_TYPEERASE_SECTORS;
+    EraseInitStruct.VoltageRange = FLASH_VOLTAGE_RANGE_3;
+	EraseInitStruct.Sector = address == 0x08008000 ?  FLASH_SECTOR_2 : FLASH_SECTOR_3  ; // Sector 6 starts at 0x08040000
+    EraseInitStruct.NbSectors = 1;
+
+    // Perform the sector erase
+    if (HAL_FLASHEx_Erase(&EraseInitStruct, &SectorError) != HAL_OK)
+    {
+        // Erase error
+        Error_Handler();
+    }
+}
+void Flash_Write(uint32_t Address, int Data)
+{
+		HAL_FLASH_Unlock();
+		Flash_Erase(Address);
+	  HAL_FLASH_Program(FLASH_TYPEPROGRAM_HALFWORD, Address, Data);
+		HAL_FLASH_Lock();
+}
+
+int16_t Flash_Read(uint32_t address) { return *(uint32_t*)address;}
+void Stop_Motors(void)
+{
+			for(uint8_t i = 1; i <= 4; i++){Set_Motor_Torque(i, 0);}
+			for(uint8_t i = 8; i <= 11; i++){Set_Motor_Velocity(i, 0);}
+}
+void Drives_Error_Check(void)
+{
+	for(uint8_t i = 1; i < 5; i++)
+	{
+		if ( i != 5 )
+		{ 
+		 if ( Axis_State[i] != 8 ){DRIVES_NO_ERROR_FLAG = NULL;} 
+		}
+	}
+}
+void Error_Healing(void)
+{
+	BUZZER_ON;
+	Stop_Motors();
+	Clear_Errors();
+	//for ( uint64_t i=1 ; i < 1000000 ; i++ ){CAN2_Reception();}
+	DRIVES_NO_ERROR_FLAG = SET;
+	BUZZER_OFF;
+}
 
 /* USER CODE END 4 */
 

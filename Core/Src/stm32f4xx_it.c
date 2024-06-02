@@ -41,11 +41,17 @@
 
 /* Private variables ---------------------------------------------------------*/
 /* USER CODE BEGIN PV */
+extern int Width_Int , Width_Int_Temp;
+uint16_t Time=0;
+extern uint32_t Width_Address_1 , Width_Address_2  ;
 
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
 /* USER CODE BEGIN PFP */
+extern void Flash_Erase(uint32_t address);
+extern void Flash_Write(uint32_t Address, int Data);
+int16_t Flash_Read(uint32_t address);
 
 /* USER CODE END PFP */
 
@@ -236,6 +242,21 @@ void CAN1_RX1_IRQHandler(void)
 void TIM8_TRG_COM_TIM14_IRQHandler(void)
 {
   /* USER CODE BEGIN TIM8_TRG_COM_TIM14_IRQn 0 */
+	
+	Time++;
+	
+	if( Time>=2 )
+	{
+		if (Width_Int_Temp != Width_Int)
+		{
+			Flash_Write(Width_Address_1, Width_Int);
+			Flash_Write(Width_Address_2, Width_Int);
+			Width_Int_Temp = Width_Int;
+		}
+		Time = 0;
+	}
+	
+	
 
   /* USER CODE END TIM8_TRG_COM_TIM14_IRQn 0 */
   HAL_TIM_IRQHandler(&htim14);
