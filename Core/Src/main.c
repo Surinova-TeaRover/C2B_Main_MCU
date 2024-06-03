@@ -147,7 +147,7 @@ uint16_t Left_Arm_Raw=0, Right_Arm_Raw =0 , Pitch_Arm_Raw=0;
 uint16_t Left_Arm_Limit = 0 ,	Right_Arm_Limit =0 , Pitch_Arm_Limit=0; 
 _Bool Flap_Sensed = 1 , Switch_Shearing = 0, Sensing_Switch=1, Shearing_Sensed = 0;
 uint8_t ARM_BOUNDARY =2 , Arm_Prop_Factor=1;
-uint16_t LA_Home_Pos = 69-30, RA_Home_Pos=400-30, PA_Home_Pos = 428-30;
+uint16_t LA_Home_Pos = 348, RA_Home_Pos= 491, PA_Home_Pos = 618;
 /*																								ARM DEFINITIONS																							*/	
 /*																TOP SENSOR DEFINITIONS																							*/
 uint16_t Left_Enc_Zero_Pos=289, Right_Enc_Zero_Pos=445, Pitch_Enc_Zero_Pos=703, Flap_Enc_Zero_Pos=125;
@@ -202,6 +202,7 @@ extern void Flash_Erase(uint32_t address);
 extern void Flash_Write(uint32_t Address, int Data);
 int16_t Flash_Read(uint32_t address);
 void New_Skid_Turn(void);
+void Manual_Controls (void);
 
 /* USER CODE END PFP */
 
@@ -244,6 +245,13 @@ void TOP_SENS_READ( void )
 																Flap_Encoder_Conv = RxData[6];
 																Flap_Encoder_Conv_Angle = Flap_Encoder_Conv << 8 | RxData[7];
 																Flap_Encoder= (New_Sensor_Pos ( Flap_Encoder_Conv_Angle , Flap_Enc_Zero_Pos));																									
+}	
+uint16_t CAN_SPI_READ(uint8_t Data[8] )
+{ uint16_t Enc_Angle=0;
+	
+				Enc_Angle = Data[0];
+				Enc_Angle = Enc_Angle << 8 | Data[1];
+	return Enc_Angle;
 }	
 float CAN_Reception(uint8_t byte_choice)
 {
@@ -301,16 +309,22 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
 	if (RxHeader.StdId == 0x005 )
 	{
 		Node_Id[12]++;
+		Left_Arm_Raw =CAN_SPI_READ(RxData); 			
+		Left_Arm = New_Sensor_Pos(Left_Arm_Raw, LA_Home_Pos );
 	}
 	
 	if (RxHeader.StdId == 0x006 )
 	{
 		Node_Id[13]++;
+		Right_Arm_Raw =CAN_SPI_READ(RxData); 			
+		Right_Arm = New_Sensor_Pos(Right_Arm_Raw, RA_Home_Pos );
 	}
 	
 	if (RxHeader.StdId == 0x007 )
 	{
 		Node_Id[14]++;
+		Pitch_Arm_Raw =CAN_SPI_READ(RxData); 			
+		Pitch_Arm = New_Sensor_Pos(Pitch_Arm_Raw, PA_Home_Pos );
 	}
 	
 	
@@ -397,8 +411,10 @@ int main(void)
 //	Start_Calibration_For( 2 , 3 , 1); HAL_Delay(10000);
 //	HAL_Delay(2000);
 //	for(uint8_t i=1; i < 5; i++){Start_Calibration_For( i , 8 , 5); HAL_Delay(100);}
-	for(uint8_t i=5; i < 11; i++){Start_Calibration_For( i , 8 , 5); HAL_Delay(10);}
-	
+HAL_Delay(2000);	
+for(uint8_t i=5; i < 11; i++){Start_Calibration_For( i , 8 , 5); HAL_Delay(10);}
+	for(uint8_t i=17; i < 21; i++){Start_Calibration_For( i , 8 , 10); HAL_Delay(500);}
+
 //	for ( uint8_t i=1 ; i < 10 ; i++ )
 //		{
 //			Clear_Errors();
@@ -421,7 +437,7 @@ int main(void)
 //	HAL_TIM_Base_Start_IT(&htim14); 
 //	Start_Calibration_For( 18 , 8 , 5);
 	BUZZER_OFF;
-	HAL_Delay(2000);
+	HAL_Delay(500);
 //	Voltage[0]=0;
 //		Voltage[1]=0;
 //		Voltage[2]=0x48;
@@ -438,10 +454,11 @@ int main(void)
     /* USER CODE BEGIN 3 */
 //		UART_Reception();
 		
-		
+					Shearing_Motors();
+
 		if(DRIVES_NO_ERROR_FLAG)
-		{			New_Skid_Turn();
-			
+		{		//	New_Skid_Turn();
+//			Manual_Controls();
 //		Drive_Wheel_Controls();
 //	  Rover_Resizer();
 //		Skid_Turning();	
@@ -795,6 +812,32 @@ void UART_Reception ( void )
 
 
 }
+void Manual_Controls (void)
+{
+	
+		/*------------------------------ARM_MOTORS------------------------------------- */
+		if( L_Arm_Speed_Temp != L_Arm_Speed )
+		{
+			Set_Motor_Velocity (5 , L_Arm_Speed );	
+			L_Arm_Speed_Temp = L_Arm_Speed ;
+		}
+		
+		if( R_Arm_Speed_Temp != R_Arm_Speed )
+		{
+			Set_Motor_Velocity (6 , R_Arm_Speed );	
+			R_Arm_Speed_Temp = R_Arm_Speed ;
+		}
+		if( Pitch_Arm_Speed_Temp != Pitch_Arm_Speed ) 
+		{
+			Set_Motor_Velocity (7 , Pitch_Arm_Speed );	
+			Pitch_Arm_Speed_Temp = Pitch_Arm_Speed ;
+		}
+	/*------------------------------ARM_MOTORS------------------------------------- */
+
+
+
+
+}
 void Joystick_Reception(void)
 {
 /* 1. Turn On buzzer if the Bt is not connected 
@@ -958,16 +1001,16 @@ void Shearing_Motors (void)
 	{
 		if ( Shearing == 2 )
 		{
-			for ( int i=0; i < 1 ; i++)
+			for ( int i=0; i < 5 ; i++)
 			{
-				Set_Motor_Velocity( 18 , -50);  // Cutter
-				HAL_Delay(3000);
-				Set_Motor_Velocity( 17 , 45 );// Side Belt
-				HAL_Delay(3000);
-				Set_Motor_Velocity( 15 , 35 ); // Paddle
-				HAL_Delay(2000);
-				Set_Motor_Velocity( 16 , 30 );  // Sel
-				
+				Set_Motor_Velocity( 18 , 20);  // Main paddle   //50
+	//			HAL_Delay(100);
+				Set_Motor_Velocity( 17 , 30);// Selective  45
+	//			HAL_Delay(100);
+				Set_Motor_Velocity( 19 , 30); // Side Paddle   35
+	//			HAL_Delay(100);
+				Set_Motor_Velocity( 20 , 20 );  // Cutter   30
+	//			HAL_Delay(100);
 				
 			}
 		}
@@ -975,10 +1018,10 @@ void Shearing_Motors (void)
 		{	
 			for ( int i=0; i < 4 ; i++)
 			{
-				Set_Motor_Velocity( 15 , 0 ); // cutter 
-				Set_Motor_Velocity( 16 , 0 ); // side paddle
-				Set_Motor_Velocity( 17 , 0 ); // selective 
-				Set_Motor_Velocity( 18 , 0 ); // paddle
+				Set_Motor_Velocity( 17 , 0 ); // cutter 
+				Set_Motor_Velocity( 18 , 0 ); // side paddle
+				Set_Motor_Velocity( 19 , 0 ); // selective 
+				Set_Motor_Velocity( 20 , 0 ); // paddle
 			}
 		}
 		 Shearing_Temp = Shearing ;
@@ -1320,9 +1363,9 @@ void Clear_Errors(void)
 {
 	for ( uint8_t i = 1 ; i < 5 ; i++)
 	{
-		if ( i != 5 ){ if ( Axis_State[i] != 8 ){Reboot(i);} }
+		 if ( Axis_State[i] != 8 ){Reboot(i);HAL_Delay(2000); }
 	}
-	HAL_Delay(2000);
+	
 }
 
 void Rover_Resizer (void)
@@ -1451,10 +1494,10 @@ void Drives_Error_Check(void)
 {
 	for(uint8_t i = 1; i < 5; i++)
 	{
-		if ( i != 5 )
-		{ 
+//		if ( i != 5 )
+//		{ 
 		 if ( Axis_State[i] != 8 ){DRIVES_NO_ERROR_FLAG = NULL;} 
-		}
+//		}
 	}
 	
 }
