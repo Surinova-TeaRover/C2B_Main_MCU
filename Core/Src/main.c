@@ -161,11 +161,19 @@ float Left_Encoder_Conv_Angle,Right_Encoder_Conv_Angle, Pitch_Encoder_Conv_Angle
 float Macro_Speed = 0, Width_Speed=0,Macro_Speed_Temp = 0, Width_Speed_Temp=0, Left_Macro_Speed=0, Right_Macro_Speed=0, Left_Macro_Speed_Temp=0, Right_Macro_Speed_Temp=0;
 
 float Width_Abs=0;
-int Width_Int =0, Width_Int_Temp=0;
-uint32_t Width_Address_1 = 0x08008000, Width_Address_2 =0x0800C000 ;
-int Width_Read_1 = 0, Width_Read_2 = 0, Width_Stored_Value=0, Width_Total_Turns=0;
+int16_t Width_Int =0, Width_Int_Temp=0;
+//uint32_t Width_Address_1 = 0x08008000, Width_Address_2 =0x08010000 ;
+uint32_t Width_Address_1 = 0x08060020, L_Macro_Address =0x08060000, R_Macro_Address = 0x08060010 ;
 
+int16_t Width_Read_1 = 0, Width_Read_2 = 0, Width_Stored_Value=0, Width_Total_Turns=0;
 
+float L_Macro_Abs=0, R_Macro_Abs=0;
+int16_t L_Macro_Int =0, L_Macro_Int_Temp=0, R_Macro_Int =0, R_Macro_Int_Temp=0;
+//uint32_t Width_Address_1 = 0x08008000, Width_Address_2 =0x0800C000 ;
+int16_t L_Macro_Read_1 = 0, R_Macro_Read_1 = 0, L_Macro_Stored_Value=0, L_Macro_Total_Turns=0, R_Macro_Stored_Value=0, R_Macro_Total_Turns=0;
+int64_t Concatenated_Value=0, Concatenated_Value_Temp=0, NConcatenated_Value=0, Stored_Value=0;
+int16_t Read_Test=0;
+int64_t NVal=0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -197,7 +205,10 @@ void Stop_Motors(void);
 
 extern void Flash_Erase(uint32_t address);
 extern void Flash_Write(uint32_t Address, int Data);
-int16_t Flash_Read(uint32_t address);
+
+uint64_t Flash_Read_64(uint32_t address);
+void Flash_Write_64(uint32_t Address, uint64_t Data);
+int Flash_Read(uint32_t address);
 
 /* USER CODE END PFP */
 
@@ -207,12 +218,13 @@ void Absolute_Position_Reception( uint8_t Node_Ids )
 {
 	switch ( Node_Ids )
 	{
-		case 8: memcpy(&Width_Abs,RxData, sizeof(float)); Width_Int = Width_Abs; break;
+		case 8: memcpy(&Width_Abs,RxData, sizeof(float)); Width_Int = Width_Abs; 			 break;
+		case 9: memcpy(&L_Macro_Abs,RxData, sizeof(float)); L_Macro_Int = L_Macro_Abs; break;
+		case 10:memcpy(&R_Macro_Abs,RxData, sizeof(float)); R_Macro_Int = R_Macro_Abs; break;
 		default: break;
-	
 	}
 	
-
+	
 }
 float New_Sensor_Pos(float sensorvalue, float zero_pos)
 {
@@ -271,19 +283,19 @@ float CAN_Reception(uint8_t byte_choice)
 }
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 {
-	if ( huart->Instance == UART5 )
-	{
+//	if ( huart->Instance == UART5 )
+//	{
 			HAL_UART_Receive_IT(&huart5,BT_Rx ,sizeof(BT_Rx));
 			//BT_Count++;
-	}
+//	}
 	
-	else if ( huart->Instance == UART4 )
-	{
-			HAL_UART_Receive_IT(&huart4,Enc_Rx ,sizeof(Enc_Rx));
-			BT_Count++;
-	}
-	
-	else {}
+//	else if ( huart->Instance == UART4 )
+//	{
+//			HAL_UART_Receive_IT(&huart4,Enc_Rx ,sizeof(Enc_Rx));
+//			BT_Count++;
+//	}
+//	
+//	else {}
 }
 
 void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
@@ -358,7 +370,7 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
-  MX_CAN1_Init();
+//  MX_CAN1_Init();
   MX_CAN2_Init();
 //  MX_UART4_Init();
 //  MX_UART5_Init();
@@ -368,16 +380,14 @@ int main(void)
 	
 	HAL_CAN_Start(&hcan2);
 	HAL_CAN_ActivateNotification(&hcan2 , CAN_IT_RX_FIFO0_MSG_PENDING);
-	
-	
+
 
 	HAL_Delay(3000);
 	
-	MX_UART4_Init();
+//	MX_UART4_Init();
   MX_UART5_Init();
-	//	HAL_Delay(3000);
-
-	HAL_UART_Receive_IT(&huart5,BT_Rx ,sizeof(BT_Rx));
+		HAL_Delay(100);
+HAL_UART_Receive_IT(&huart5,BT_Rx ,sizeof(BT_Rx));
 //	HAL_UART_Receive_IT(&huart4,Enc_Rx ,sizeof(Enc_Rx));
 //	Start_Calibration_For( 2 , 3 , 1); HAL_Delay(10000);
 //	HAL_Delay(2000);
@@ -389,21 +399,23 @@ int main(void)
 //			Clear_Errors();
 ////			HAL_Delay(2000);
 //		}
+//	HAL_FLASH_Unlock();
+//	Flash_Erase(Width_Address_2);Flash_Erase(0x08010010);Flash_Erase(0x08010020);
+//	HAL_FLASH_Lock();	
+R_Macro_Read_1 = L_Macro_Read_1 = 0;
+/*
+R_Macro_Read_1 = Flash_Read ( R_Macro_Address);
+L_Macro_Read_1 = Flash_Read ( L_Macro_Address);
+//Width_Read_1 = Flash_Read ( Width_Address_2);
+	
+R_Macro_Read_1 = R_Macro_Read_1==-1? 0 : R_Macro_Read_1;
+L_Macro_Read_1 = L_Macro_Read_1==-1? 0 : L_Macro_Read_1;
+Width_Read_1 = Width_Read_1==-1? 0 : Width_Read_1;
+*/
 		
-	Width_Read_1 = 	Flash_Read(Width_Address_1);
-	Width_Read_2 = 	Flash_Read(Width_Address_2);
-	
-	Width_Read_1 = Width_Read_1==-1 ? 0 : Width_Read_1;
-	Width_Read_2 = Width_Read_2==-1? 0 : Width_Read_2;
+//		HAL_TIM_Base_Start_IT(&htim14);
+//			HAL_UART_Receive_IT(&huart5,BT_Rx ,sizeof(BT_Rx));
 
-	Width_Int_Temp= Width_Read_2;
-	Width_Stored_Value = Width_Read_1== 0 ? Width_Read_2 : Width_Read_2== 0 ? Width_Read_1 : Width_Read_2;
-	
-	
-	
-	
-	
-	HAL_TIM_Base_Start_IT(&htim14); 
 //	Start_Calibration_For( 18 , 8 , 5);
 	BUZZER_OFF;
 //	Voltage[0]=0;
@@ -420,19 +432,21 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-//		UART_Reception();
+
 		
+	//	Rover_Resizer();
 		
+
+
 		if(DRIVES_NO_ERROR_FLAG)
 		{			
 		Drive_Wheel_Controls();
-//	  Rover_Resizer();
+	  Rover_Resizer();
 		Skid_Turning();	
 		}
 	  else{Error_Healing();}
-			
-			
-			
+
+		
 //		Joystick_Reception();
 //		Drive_Wheel_Controls();
 //	  Rover_Resizer();
@@ -787,7 +801,8 @@ void Joystick_Reception(void)
 	
 	
 	if (( BT_Rx[0] == 0xAA ) &&	( BT_Rx[7] == 0xFF ))
-	{	
+	{
+		
 		Mode 						 = BT_Rx[1];
 		Speed 					 = BT_Rx[2]  != 0 ? BT_Rx[2] : Speed ;	
 		Steering_Mode 	 = BT_Rx[3];
@@ -795,6 +810,10 @@ void Joystick_Reception(void)
 		Joystick 				 = BT_Rx[5];
 		Shearing				 = BT_Rx[6];
 	}	
+	else
+	{
+		for(uint8_t i = 0; i < 8 ; i ++ ) { BT_Rx[i] =0; }
+	}
 
 	/*				JOYSTICK VALUES ASSIGNING								*/
 ///////////////////////////////////////////////////////////////////////////////////	
@@ -1303,16 +1322,19 @@ void Clear_Errors(void)
 {
 	for ( uint8_t i = 1 ; i < 5 ; i++)
 	{
-		if ( i != 5 ){ if ( Axis_State[i] != 8 ){Reboot(i);} }
+		if (  i != 5 || i != 6 || i != 7 ){ if ( Axis_State[i] != 8 ){Reboot(i);} }
 	}
 	HAL_Delay(2000);
 }
 
 void Rover_Resizer (void)
 {
-	
+				
 	if ( Mode == 2 )
 	{
+		L_Macro_Total_Turns = L_Macro_Read_1 + L_Macro_Int;
+		R_Macro_Total_Turns = R_Macro_Read_1 + R_Macro_Int;
+
 		if ( Joystick_Temp != Joystick )
 		{
 //			switch ( Joystick )
@@ -1345,6 +1367,10 @@ void Rover_Resizer (void)
 			/*
 			 Encoder Checks
 			*/
+		
+//			L_Macro_Total_Turns = L_Macro_Read_1 + L_Macro_Int;
+//			Left_Macro_Speed = (( Left_Macro_Speed < 0) && L_Macro_Total_Turns < -300 )? 0  : (( Left_Macro_Speed > 0) && L_Macro_Total_Turns > 0) ? 0 : Left_Macro_Speed;
+
 			if ( Left_Macro_Speed_Temp != Left_Macro_Speed )
 			{
 				Set_Motor_Velocity ( 9 , Left_Macro_Speed );
@@ -1355,6 +1381,9 @@ void Rover_Resizer (void)
 			/*
 			 Encoder Checks
 			*/
+//			R_Macro_Total_Turns = R_Macro_Read_1 + R_Macro_Int;
+//			Right_Macro_Speed = (( Right_Macro_Speed < 0) && R_Macro_Total_Turns < -300 )? 0  : (( Right_Macro_Speed > 0) && R_Macro_Total_Turns > 0) ? 0 : Right_Macro_Speed;
+
 			if ( Right_Macro_Speed_Temp != Right_Macro_Speed )
 			{
 				Set_Motor_Velocity ( 10 , Right_Macro_Speed );
@@ -1366,7 +1395,7 @@ void Rover_Resizer (void)
 			 Encoder Checks
 			*/
 			
-			Width_Total_Turns = Width_Stored_Value + Width_Int;
+		/*	Width_Total_Turns = Width_Stored_Value + Width_Int;
 			
 			Width_Speed = (( Width_Speed > 0) && Width_Total_Turns > 400 )? 0  : (( Width_Speed < 0) && Width_Total_Turns < 0) ? 0 : Width_Speed;
 			
@@ -1386,7 +1415,7 @@ void Rover_Resizer (void)
 				}
 				Width_Speed_Temp = Width_Speed ;
 			}
-	
+	*/
 /*					          		Course Correction														*/		
 
 	
@@ -1406,11 +1435,12 @@ void Flash_Erase(uint32_t address)
     // Fill EraseInitStruct
     EraseInitStruct.TypeErase = FLASH_TYPEERASE_SECTORS;
     EraseInitStruct.VoltageRange = FLASH_VOLTAGE_RANGE_3;
-	EraseInitStruct.Sector = address == 0x08008000 ?  FLASH_SECTOR_2 : FLASH_SECTOR_3  ; // Sector 6 starts at 0x08040000
-    EraseInitStruct.NbSectors = 1;
+//	EraseInitStruct.Sector = address == 0x08008000 ?  FLASH_SECTOR_2 : FLASH_SECTOR_4  ; // Sector 6 starts at 0x08040000
+  EraseInitStruct.Sector =   FLASH_SECTOR_7;
+	EraseInitStruct.NbSectors = 1;
 
     // Perform the sector erase
-    if (HAL_FLASHEx_Erase(&EraseInitStruct, &SectorError) != HAL_OK)
+    if (HAL_FLASHEx_Erase(&EraseInitStruct, &SectorError) != HAL_OK) //, &SectorError
     {
         // Erase error
         Error_Handler();
@@ -1418,13 +1448,37 @@ void Flash_Erase(uint32_t address)
 }
 void Flash_Write(uint32_t Address, int Data)
 {
-		HAL_FLASH_Unlock();
-		Flash_Erase(Address);
-	  HAL_FLASH_Program(FLASH_TYPEPROGRAM_HALFWORD, Address, Data);
-		HAL_FLASH_Lock();
+//		HAL_FLASH_Unlock();
+//		Flash_Erase(Address);
+	  HAL_FLASH_Program_IT(FLASH_TYPEPROGRAM_WORD, Address, Data);
+//		HAL_FLASH_Lock();
 }
 
-int16_t Flash_Read(uint32_t address) { return *(uint32_t*)address;}
+void Flash_Write_64(uint32_t Address, uint64_t Data)
+{
+//		HAL_FLASH_Unlock();
+//		Flash_Erase(Address); Flash_Erase(Address+4);
+		if (HAL_FLASH_Program(FLASH_TYPEPROGRAM_WORD, Address, 0xFFFFFFFFFFFFFFFF) != HAL_OK){Error_Handler();}
+		if (HAL_FLASH_Program(FLASH_TYPEPROGRAM_WORD, Address+4, 0xFFFFFFFFFFFFFFFF) != HAL_OK){Error_Handler();}
+	
+	uint32_t data_word1 = (uint32_t)(Data & 0xFFFFFFFF);
+  uint32_t data_word2 = (uint32_t)((Data >> 32) & 0xFFFFFFFF);
+		
+		if (HAL_FLASH_Program(FLASH_TYPEPROGRAM_WORD, Address, data_word1) != HAL_OK) {Error_Handler();}
+    if (HAL_FLASH_Program(FLASH_TYPEPROGRAM_WORD, Address + 4, data_word2) != HAL_OK) {Error_Handler();}
+	//	HAL_FLASH_Lock();
+}
+
+int Flash_Read(uint32_t address) { return *(int*)address;}
+uint64_t Flash_Read_64(uint32_t address)
+{
+    uint32_t data_word1 = *(uint32_t *)address;
+    uint32_t data_word2 = *(uint32_t *)(address + 4);
+
+    uint64_t data = ((uint64_t)data_word2 << 32) | data_word1;
+
+    return data;
+}
 void Stop_Motors(void)
 {
 			for(uint8_t i = 1; i <= 4; i++){Set_Motor_Torque(i, 0);}
@@ -1434,7 +1488,7 @@ void Drives_Error_Check(void)
 {
 	for(uint8_t i = 1; i < 5; i++)
 	{
-		if ( i != 5 )
+		if ( i != 5 || i != 6 || i != 7 )
 		{ 
 		 if ( Axis_State[i] != 8 ){DRIVES_NO_ERROR_FLAG = NULL;} 
 		}
@@ -1452,6 +1506,7 @@ void Error_Healing(void)
 
 /* USER CODE END 4 */
 
+
 /**
   * @brief  This function is executed in case of error occurrence.
   * @retval None
@@ -1463,6 +1518,9 @@ void Error_Handler(void)
   __disable_irq();
   while (1)
   {
+		for (uint8_t i = 1 ; i < 5 ; i++ ) Set_Motor_Torque(i,0);
+		for (uint8_t i = 5 ; i < 12 ; i++ ) Set_Motor_Velocity(i,0);
+
   }
   /* USER CODE END Error_Handler_Debug */
 }

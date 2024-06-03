@@ -43,7 +43,11 @@
 /* USER CODE BEGIN PV */
 extern int Width_Int , Width_Int_Temp;
 uint16_t Time=0;
-extern uint32_t Width_Address_1 , Width_Address_2  ;
+extern uint32_t Width_Address_1 , L_Macro_Address , R_Macro_Address  ;
+extern int64_t Concatenated_Value, Concatenated_Value_Temp;
+extern int16_t L_Macro_Int , L_Macro_Int_Temp, R_Macro_Int , R_Macro_Int_Temp;
+extern int16_t  L_Macro_Total_Turns, R_Macro_Total_Turns;
+extern uint8_t BT_Rx[8];
 
 /* USER CODE END PV */
 
@@ -52,6 +56,7 @@ extern uint32_t Width_Address_1 , Width_Address_2  ;
 extern void Flash_Erase(uint32_t address);
 extern void Flash_Write(uint32_t Address, int Data);
 int16_t Flash_Read(uint32_t address);
+extern void Flash_Write_64(uint32_t Address, uint64_t Data);;
 
 /* USER CODE END PFP */
 
@@ -245,13 +250,20 @@ void TIM8_TRG_COM_TIM14_IRQHandler(void)
 	
 	Time++;
 	
-	if( Time>=2 )
-	{
-		if (Width_Int_Temp != Width_Int)
+	if( Time>=10 )
+	{// L_Macro_Total_Turns = 100; R_Macro_Total_Turns = 100;
+		Concatenated_Value= (((((Concatenated_Value | Width_Int) << 16) | L_Macro_Total_Turns) << 16) | R_Macro_Total_Turns  ) ;
+
+		if ( Concatenated_Value_Temp != Concatenated_Value )
 		{
-	//		Flash_Write(Width_Address_1, Width_Int);
-			Flash_Write(Width_Address_2, Width_Int);
-			Width_Int_Temp = Width_Int;
+			HAL_FLASH_Unlock();
+//			Flash_Erase(Width_Address_2);
+			Flash_Erase(L_Macro_Address);Flash_Erase(R_Macro_Address);
+			//Flash_Write ( Width_Address_2 , Width_Int ); 
+//			Flash_Write( L_Macro_Address , L_Macro_Total_Turns );
+//			Flash_Write( R_Macro_Address , R_Macro_Total_Turns );
+			HAL_FLASH_Lock();
+			Concatenated_Value_Temp = Concatenated_Value;
 		}
 		Time = 0;
 	}
