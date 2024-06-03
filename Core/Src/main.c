@@ -133,8 +133,8 @@ float Turn_Ratio=0,Reduced_Speed=0, Turn_Temp=0, Reduced_Speed_Temp=0;
 uint8_t Mod[8], Idle_Wheels=1;
 float Current=0;
 
-float Left_Vel_Limit = 1, Right_Vel_Limit = 1, Left_Reduced_Speed = 0, Right_Reduced_Speed = 0;
-float Left_Vel_Limit_Temp = 1, Right_Vel_Limit_Temp = 1, Left_Prev_Vel_Limit = 1, Right_Prev_Vel_Limit = 1, Left_Reduced_Speed_Temp = 0, Right_Reduced_Speed_Temp = 0;
+float Left_Vel_Limit = 1, Right_Vel_Limit = 1, Left_Reduced_Speed = 0, Right_Reduced_Speed = 0, Left_Vel_Limit_Temp=0, R_Vel_Limit=0;
+float  Right_Vel_Limit_Temp = 1, Left_Prev_Vel_Limit = 1, Right_Prev_Vel_Limit = 1, Left_Reduced_Speed_Temp = 0, Right_Reduced_Speed_Temp = 0;
 /*																								ARM DEFINITIONS																							*/		
 float L_Arm_Speed=0, R_Arm_Speed=0, L_Arm_Speed_Temp=0, R_Arm_Speed_Temp=0, Pitch_Arm_Speed=0, Pitch_Arm_Speed_Temp=0;
 uint8_t L_Arm=12, R_Arm=13, P_Arm=14;
@@ -406,8 +406,8 @@ int main(void)
 	
 	
 	
-	
-	HAL_TIM_Base_Start_IT(&htim14); 
+	for(int i=1 ; i < 5 ; i++) {CAN_Transmit(i,VEL_LIMIT,10,4,DATA);}
+//	HAL_TIM_Base_Start_IT(&htim14); 
 //	Start_Calibration_For( 18 , 8 , 5);
 	BUZZER_OFF;
 //	Voltage[0]=0;
@@ -428,10 +428,11 @@ int main(void)
 		
 		
 		if(DRIVES_NO_ERROR_FLAG)
-		{			
-		Drive_Wheel_Controls();
+		{			New_Skid_Turn();
+			
+//		Drive_Wheel_Controls();
 //	  Rover_Resizer();
-		Skid_Turning();	
+//		Skid_Turning();	
 		}
 	  else{Error_Healing();}
 			
@@ -1454,7 +1455,8 @@ void Error_Healing(void)
 	BUZZER_OFF;
 }
 
-void New_Skid_Turn(void){
+void New_Skid_Turn(void)
+{
 	
 	if ( (Speed!= 0) && (BT_State) && Mode != 2 )
 	{
@@ -1473,21 +1475,22 @@ void New_Skid_Turn(void){
 
 	
 	
-			if ( Torque != 0 && Prev_Torque == 0 )
-			{
-				if ( Idle_Wheels) 
-				{
-					for ( uint8_t i = 1 ; i < 5 ; i++ ){ Set_Motor_Torque ( i , Torque );}
-					Joystick_Temp = Joystick;
-					Prev_Torque = Torque;
-				}
-			}
-			else 
-			{
+//			if ( Torque != 0 && Prev_Torque == 0 )
+//			{
+//				if ( Idle_Wheels) 
+//				{
+//					for ( uint8_t i = 1 ; i < 5 ; i++ ){ Set_Motor_Torque ( i , Torque );}
+//					Joystick_Temp = Joystick;
+//					Prev_Torque = Torque;
+//				}
+//			}
+//			else 
+//			{
+//			for ( uint8_t i = 1 ; i < 5 ; i++ ){ Set_Motor_Torque ( i , Torque );}
+//			Joystick_Temp = Joystick;
+//			Prev_Torque = Torque;
+//			}
 			for ( uint8_t i = 1 ; i < 5 ; i++ ){ Set_Motor_Torque ( i , Torque );}
-			Joystick_Temp = Joystick;
-			Prev_Torque = Torque;
-			}
 			Joystick_Temp = Joystick;
 			
 		//	Pot_Angle = Pot_Angle > 170 ? Pot_Angle-10 : Pot_Angle < 10 ? Pot_Angle+ 10 : Pot_Angle+5; // dummy line
@@ -1497,64 +1500,95 @@ void New_Skid_Turn(void){
 	if ( Motor_Velocity[1] < 2 && Motor_Velocity[1] > -2 && Motor_Velocity[2] < 2 && Motor_Velocity[2] > -2 && Motor_Velocity[3] < 2 && Motor_Velocity[3] > -2 && Motor_Velocity[4] < 2 && Motor_Velocity[4] > -2 ) Idle_Wheels = SET;
 	else Idle_Wheels = NULL;
 	
-	if ( Idle_Wheels ) {Left_Vel_Limit = 10; Right_Vel_Limit = 10; Vel_Limit = 10;}
-	else if (  !Idle_Wheels ) { Left_Vel_Limit = 20 + Speed * 20; Right_Vel_Limit = 20 + Speed * 20; Vel_Limit = 20 + Speed * 20;}
-	else {}
-	
+//	if ( Idle_Wheels ) { Vel_Limit = 10; }
+//	else if (  !Idle_Wheels ) { Vel_Limit = 20 + Speed * 20;}
+//	else {}
+	Vel_Limit = 10 + Speed * 20;
 	if ( Mode != 2 )
 	{
 		Turn_Ratio = Pot_Angle - 90;
-		if(Turn_Ratio < -2)
-		{
-			
-		}
-		
-		else if(Turn_Ratio > 2)
-		{
-			
-		}
+		Reduced_Speed = (Turn_Ratio/100) * Vel_Limit;
+//		
+		if(Reduced_Speed < -5){Right_Vel_Limit = Vel_Limit - Reduced_Speed;}
+		else if(Reduced_Speed > 5){	Right_Vel_Limit = Vel_Limit - Reduced_Speed;}
+		else{Right_Vel_Limit  = Vel_Limit;}
 
-		else{
-			
-					if ( Vel_Limit_Temp != Vel_Limit )
-					{
-						if( Prev_Vel_Limit > Vel_Limit ) 	
-						{
-							for ( float v = Prev_Vel_Limit-2; v >= Vel_Limit  ; v=v-2 )
-							{	
-								for(int i=1 ; i < 5 ; i++) 
-								{
-									CAN_Transmit(i,VEL_LIMIT,v,4,DATA);
-								}
-								HAL_Delay(Jump_Time);
-							}
-			
-							Prev_Vel_Limit = Vel_Limit ;
-			
-						}
+//			if ( Motor_Velocity[1] > (Left_Vel_Limit -2) && Motor_Velocity[1] < (Left_Vel_Limit +2) ) Left_Vel_Limit = Vel_Limit;
+//			else if ( Motor_Velocity[1] < Vel_Limit-2 ) Left_Vel_Limit = Left_Vel_Limit +2;
+//			else if ( Motor_Velocity[1] > Vel_Limit+2 ) Left_Vel_Limit = Left_Vel_Limit -2;
+//			
+		Left_Vel_Limit  = Vel_Limit;
+		if( Left_Vel_Limit_Temp != Left_Vel_Limit )
+		{
+			for(int i=1 ; i < 3 ; i++) {CAN_Transmit(i,VEL_LIMIT,Left_Vel_Limit,4,DATA);}
+			Left_Vel_Limit_Temp = Left_Vel_Limit;
+		}
 		
-						else
-						{
-							for ( float v = Prev_Vel_Limit+2; v <= Vel_Limit  ; v=v+2 )
-							{	
-								for(int i=1 ; i < 5 ; i++) 
-								{
-									CAN_Transmit(i,VEL_LIMIT,v,4,DATA);
-								}
-								HAL_Delay(Jump_Time);
-							}
+//			if ( Motor_Velocity[3] > (R_Vel_Limit -2) && Motor_Velocity[3] < (R_Vel_Limit +2) ) Right_Vel_Limit = R_Vel_Limit;
+//			else if ( Motor_Velocity[3] < R_Vel_Limit-2 ) Right_Vel_Limit = Right_Vel_Limit +2;
+//			else if ( Motor_Velocity[3] > R_Vel_Limit+2 ) Right_Vel_Limit = Right_Vel_Limit -2;
+//			
+		if( Right_Vel_Limit_Temp != Right_Vel_Limit )
+		{
+			for(int i=3 ; i < 5 ; i++) {CAN_Transmit(i,VEL_LIMIT,Right_Vel_Limit,4,DATA);}
+			Right_Vel_Limit_Temp = Right_Vel_Limit;
+		}
+		
+		/*
+		
+		
+//		if ( Vel_Limit_Temp != Vel_Limit )
+//		{
+//			if ( Vel_Limit > ((int)Motor_Velocity[1])+2)
+//			{
+//				for ( uint8_t v = ((int)Motor_Velocity[1])+2; v <= Vel_Limit  ; v=v+2 )
+//				{	
+//					for(int i=1 ; i < 3 ; i++) {CAN_Transmit(i,VEL_LIMIT,v,4,DATA);}
+//					HAL_Delay(Jump_Time);
+//				}	
+//			}
+//			else if ( Vel_Limit < ((int)Motor_Velocity[1])-2)
+//			{
+//				for ( uint8_t v = ((int)Motor_Velocity[1])-2; v >= Vel_Limit  ; v=v-2 )
+//				{	
+//					for(int i=1 ; i < 3 ; i++) {CAN_Transmit(i,VEL_LIMIT,v,4,DATA);}
+//					HAL_Delay(Jump_Time);
+//				}	
+//			}
+//			else {for(int i=1 ; i < 3 ; i++) {CAN_Transmit(i,VEL_LIMIT,Vel_Limit,4,DATA);}}
+//			Vel_Limit_Temp = Vel_Limit;
+//		}
+		
+		
+
+		
 			
-							Prev_Vel_Limit = Vel_Limit ;
-						}
-	
-						Vel_Limit_Temp = Vel_Limit;
-				
-			}
-		}	
+//		if ( Vel_Limit_Temp != Vel_Limit )
+//		{
+//			if( Prev_Vel_Limit > Vel_Limit ) 	
+//			{
+//				for ( float v = Prev_Vel_Limit-2; v >= Vel_Limit  ; v=v-2 )
+//				{	
+//					for(int i=1 ; i < 5 ; i++) {CAN_Transmit(i,VEL_LIMIT,v,4,DATA);}
+//					HAL_Delay(Jump_Time);
+//				}
+//				Prev_Vel_Limit = Vel_Limit ;
+//			}
+
+//			else
+//			{
+//				for ( float v = Prev_Vel_Limit+2; v <= Vel_Limit  ; v=v+2 )
+//				{	
+//					for(int i=1 ; i < 5 ; i++) {CAN_Transmit(i,VEL_LIMIT,v,4,DATA);}
+//					HAL_Delay(Jump_Time);
+//				}
+//				Prev_Vel_Limit = Vel_Limit ;
+//			}
+//			Vel_Limit_Temp = Vel_Limit;	
+//		}
+		*/
 						
 	}
-		
-	
 	
 }
 /* USER CODE END 4 */
