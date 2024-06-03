@@ -132,6 +132,9 @@ uint8_t cantest=0,BT_Count=0,ux_fail=0;
 float Turn_Ratio=0,Reduced_Speed=0, Turn_Temp=0, Reduced_Speed_Temp=0; 
 uint8_t Mod[8], Idle_Wheels=1;
 float Current=0;
+
+float Left_Vel_Limit = 1, Right_Vel_Limit = 1, Left_Reduced_Speed = 0, Right_Reduced_Speed = 0;
+float Left_Vel_Limit_Temp = 1, Right_Vel_Limit_Temp = 1, Left_Prev_Vel_Limit = 1, Right_Prev_Vel_Limit = 1, Left_Reduced_Speed_Temp = 0, Right_Reduced_Speed_Temp = 0;
 /*																								ARM DEFINITIONS																							*/		
 float L_Arm_Speed=0, R_Arm_Speed=0, L_Arm_Speed_Temp=0, R_Arm_Speed_Temp=0, Pitch_Arm_Speed=0, Pitch_Arm_Speed_Temp=0;
 uint8_t L_Arm=12, R_Arm=13, P_Arm=14;
@@ -198,6 +201,7 @@ void Stop_Motors(void);
 extern void Flash_Erase(uint32_t address);
 extern void Flash_Write(uint32_t Address, int Data);
 int16_t Flash_Read(uint32_t address);
+void New_Skid_Turn(void);
 
 /* USER CODE END PFP */
 
@@ -1450,6 +1454,109 @@ void Error_Healing(void)
 	BUZZER_OFF;
 }
 
+void New_Skid_Turn(void){
+	
+	if ( (Speed!= 0) && (BT_State) && Mode != 2 )
+	{
+		if ( Joystick_Temp != Joystick )
+		{
+			switch (Joystick)
+			{
+				case 0 :   Torque =  NULL;  							break;								
+				case 1 :   Torque =	DRIVE_TORQUE; 				break; 
+				case 2 :   Torque = -DRIVE_TORQUE;					break; 
+				case 3 :   Torque =	DRIVE_TORQUE;					break; 
+				case 4 :   Torque = DRIVE_TORQUE;					break;
+				default :																	break;
+			}
+//			for ( uint8_t i = 1 ; i < 5 ; i++ ){ Set_Motor_Torque ( i , Torque );}
+
+	
+	
+			if ( Torque != 0 && Prev_Torque == 0 )
+			{
+				if ( Idle_Wheels) 
+				{
+					for ( uint8_t i = 1 ; i < 5 ; i++ ){ Set_Motor_Torque ( i , Torque );}
+					Joystick_Temp = Joystick;
+					Prev_Torque = Torque;
+				}
+			}
+			else 
+			{
+			for ( uint8_t i = 1 ; i < 5 ; i++ ){ Set_Motor_Torque ( i , Torque );}
+			Joystick_Temp = Joystick;
+			Prev_Torque = Torque;
+			}
+			Joystick_Temp = Joystick;
+			
+		//	Pot_Angle = Pot_Angle > 170 ? Pot_Angle-10 : Pot_Angle < 10 ? Pot_Angle+ 10 : Pot_Angle+5; // dummy line
+		}
+	}
+	
+	if ( Motor_Velocity[1] < 2 && Motor_Velocity[1] > -2 && Motor_Velocity[2] < 2 && Motor_Velocity[2] > -2 && Motor_Velocity[3] < 2 && Motor_Velocity[3] > -2 && Motor_Velocity[4] < 2 && Motor_Velocity[4] > -2 ) Idle_Wheels = SET;
+	else Idle_Wheels = NULL;
+	
+	if ( Idle_Wheels ) {Left_Vel_Limit = 10; Right_Vel_Limit = 10; Vel_Limit = 10;}
+	else if (  !Idle_Wheels ) { Left_Vel_Limit = 20 + Speed * 20; Right_Vel_Limit = 20 + Speed * 20; Vel_Limit = 20 + Speed * 20;}
+	else {}
+	
+	if ( Mode != 2 )
+	{
+		Turn_Ratio = Pot_Angle - 90;
+		if(Turn_Ratio < -2)
+		{
+			
+		}
+		
+		else if(Turn_Ratio > 2)
+		{
+			
+		}
+
+		else{
+			
+					if ( Vel_Limit_Temp != Vel_Limit )
+					{
+						if( Prev_Vel_Limit > Vel_Limit ) 	
+						{
+							for ( float v = Prev_Vel_Limit-2; v >= Vel_Limit  ; v=v-2 )
+							{	
+								for(int i=1 ; i < 5 ; i++) 
+								{
+									CAN_Transmit(i,VEL_LIMIT,v,4,DATA);
+								}
+								HAL_Delay(Jump_Time);
+							}
+			
+							Prev_Vel_Limit = Vel_Limit ;
+			
+						}
+		
+						else
+						{
+							for ( float v = Prev_Vel_Limit+2; v <= Vel_Limit  ; v=v+2 )
+							{	
+								for(int i=1 ; i < 5 ; i++) 
+								{
+									CAN_Transmit(i,VEL_LIMIT,v,4,DATA);
+								}
+								HAL_Delay(Jump_Time);
+							}
+			
+							Prev_Vel_Limit = Vel_Limit ;
+						}
+	
+						Vel_Limit_Temp = Vel_Limit;
+				
+			}
+		}	
+						
+	}
+		
+	
+	
+}
 /* USER CODE END 4 */
 
 /**
