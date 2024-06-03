@@ -115,7 +115,7 @@ CAN_RxHeaderTypeDef RxHeader;
 uint8_t TxData[8];
 uint8_t RxData[8],  RxBuff[8];
 uint32_t TxMailbox;
-uint16_t Received_Node_Id=0, Received_Command_Id=0,Node_Id[20];
+uint16_t Received_Node_Id=0, Received_Command_Id=0,Node_Id[21];
 float Motor_Velocity[20];
 uint8_t Motor_Error[20], Encoder_Error[20] , Motor_Current[20];
 uint8_t Axis_State[20] , Controller_Status[20], Error_Status[20];
@@ -298,11 +298,22 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
 	Received_Node_Id = RxHeader.StdId >> 5;
 	Received_Command_Id = RxHeader.StdId & CMD_MASK;
 		
-	if (RxHeader.StdId == 0x051 )
+	if (RxHeader.StdId == 0x005 )
 	{
-//		TOP_SENS_READ();										
-//		TOP_SENS++;
+		Node_Id[12]++;
 	}
+	
+	if (RxHeader.StdId == 0x006 )
+	{
+		Node_Id[13]++;
+	}
+	
+	if (RxHeader.StdId == 0x007 )
+	{
+		Node_Id[14]++;
+	}
+	
+	
 	else
 	{
 		switch( Received_Command_Id )	
@@ -393,23 +404,24 @@ int main(void)
 //			Clear_Errors();
 ////			HAL_Delay(2000);
 //		}
-		
-	Width_Read_1 = 	Flash_Read(Width_Address_1);
-	Width_Read_2 = 	Flash_Read(Width_Address_2);
-	
-	Width_Read_1 = Width_Read_1==-1 ? 0 : Width_Read_1;
-	Width_Read_2 = Width_Read_2==-1? 0 : Width_Read_2;
+//		
+//	Width_Read_1 = 	Flash_Read(Width_Address_1);
+//	Width_Read_2 = 	Flash_Read(Width_Address_2);
+//	
+//	Width_Read_1 = Width_Read_1==-1 ? 0 : Width_Read_1;
+//	Width_Read_2 = Width_Read_2==-1? 0 : Width_Read_2;
 
-	Width_Int_Temp= Width_Read_2;
-	Width_Stored_Value = Width_Read_1== 0 ? Width_Read_2 : Width_Read_2== 0 ? Width_Read_1 : Width_Read_2;
+//	Width_Int_Temp= Width_Read_2;
+//	Width_Stored_Value = Width_Read_1== 0 ? Width_Read_2 : Width_Read_2== 0 ? Width_Read_1 : Width_Read_2;
+//	
 	
 	
 	
-	
-	for(int i=1 ; i < 5 ; i++) {CAN_Transmit(i,VEL_LIMIT,10,4,DATA);}
+//	for(int i=1 ; i < 5 ; i++) {CAN_Transmit(i,VEL_LIMIT,10,4,DATA);}
 //	HAL_TIM_Base_Start_IT(&htim14); 
 //	Start_Calibration_For( 18 , 8 , 5);
 	BUZZER_OFF;
+	HAL_Delay(2000);
 //	Voltage[0]=0;
 //		Voltage[1]=0;
 //		Voltage[2]=0x48;
@@ -1444,6 +1456,7 @@ void Drives_Error_Check(void)
 		 if ( Axis_State[i] != 8 ){DRIVES_NO_ERROR_FLAG = NULL;} 
 		}
 	}
+	
 }
 void Error_Healing(void)
 {
@@ -1509,15 +1522,15 @@ void New_Skid_Turn(void)
 		Turn_Ratio = Pot_Angle - 90;
 		Reduced_Speed = (Turn_Ratio/100) * Vel_Limit;
 //		
-		if(Reduced_Speed < -5){Right_Vel_Limit = Vel_Limit - Reduced_Speed;}
-		else if(Reduced_Speed > 5){	Right_Vel_Limit = Vel_Limit - Reduced_Speed;}
-		else{Right_Vel_Limit  = Vel_Limit;}
+		if(Reduced_Speed < -5){Left_Vel_Limit = Vel_Limit + Reduced_Speed;Right_Vel_Limit = Vel_Limit;}
+		else if(Reduced_Speed > 5){	Right_Vel_Limit = Vel_Limit - Reduced_Speed; Left_Vel_Limit = Vel_Limit;}
+		else{Right_Vel_Limit  = Left_Vel_Limit= Vel_Limit;}
 
 //			if ( Motor_Velocity[1] > (Left_Vel_Limit -2) && Motor_Velocity[1] < (Left_Vel_Limit +2) ) Left_Vel_Limit = Vel_Limit;
 //			else if ( Motor_Velocity[1] < Vel_Limit-2 ) Left_Vel_Limit = Left_Vel_Limit +2;
 //			else if ( Motor_Velocity[1] > Vel_Limit+2 ) Left_Vel_Limit = Left_Vel_Limit -2;
 //			
-		Left_Vel_Limit  = Vel_Limit;
+	//	Left_Vel_Limit  = Vel_Limit;
 		if( Left_Vel_Limit_Temp != Left_Vel_Limit )
 		{
 			for(int i=1 ; i < 3 ; i++) {CAN_Transmit(i,VEL_LIMIT,Left_Vel_Limit,4,DATA);}
