@@ -136,7 +136,7 @@ float Current=0;
 float Left_Vel_Limit = 1, Right_Vel_Limit = 1, Left_Reduced_Speed = 0, Right_Reduced_Speed = 0, Left_Vel_Limit_Temp=0, R_Vel_Limit=0;
 float  Right_Vel_Limit_Temp = 1, Left_Prev_Vel_Limit = 1, Right_Prev_Vel_Limit = 1, Left_Reduced_Speed_Temp = 0, Right_Reduced_Speed_Temp = 0;
 /*																								ARM DEFINITIONS																							*/		
-float L_Arm_Speed=0, R_Arm_Speed=0, L_Arm_Speed_Temp=0, R_Arm_Speed_Temp=0, Pitch_Arm_Speed=0, Pitch_Arm_Speed_Temp=0;
+float L_Arm_Speed=0, R_Arm_Speed=0, L_Arm_Speed_Temp=0, R_Arm_Speed_Temp=0, Pitch_Arm_Speed=0, Pitch_Arm_Speed_Temp=0, L_Arms_Speed=0, L_Arms_Speed_Temp=0;
 uint8_t L_Arm=5, R_Arm=6, P_Arm=7;
 float Left_Arm_Error=0, Right_Arm_Error=0, Pitch_Arms_Error=0;
 //int Left_Target=18+Z-5, Right_Target=15+Z-5, Pitch_Target=15+Z, Flap_Target=30;//p=20+Z, l=18+z, r=20+z
@@ -476,12 +476,12 @@ for(uint8_t i=5; i < 11; i++){Start_Calibration_For( i , 8 , 5); HAL_Delay(10);}
 
 		if(DRIVES_NO_ERROR_FLAG)
 		{		
-			Top_Flap_Sensing();
-				New_Drive_Controls();
-//			Manual_Controls();
-//		Drive_Wheel_Controls();
-//	  Rover_Resizer();
-//		Skid_Turning();	
+//			Top_Flap_Sensing();
+	  	New_Drive_Controls();
+			Rover_Resizer();
+			
+			Manual_Controls();
+	  
 		}
 	  else{Error_Healing();}
 			
@@ -1362,11 +1362,21 @@ void Top_Flap_Sensing (void)
 	
 	if ( Mode != 3)  // Semi-Auto Homing
 	{
-		L_Arm_Speed 		= (( Left_Arm <= ARM_BOUNDARY )  && ( Left_Arm >= -ARM_BOUNDARY ))  ? 0 : ( Left_Arm > ARM_BOUNDARY ) ? ARM_HOMING_SPEED  : -ARM_HOMING_SPEED;					//Left_Arm*Arm_Prop_Factor ;	
+		L_Arms_Speed 		= (( Left_Arm <= ARM_BOUNDARY )  && ( Left_Arm >= -ARM_BOUNDARY ))  ? 0 : ( Left_Arm > ARM_BOUNDARY ) ? ARM_HOMING_SPEED  : -ARM_HOMING_SPEED;					//Left_Arm*Arm_Prop_Factor ;	
 		R_Arm_Speed 		= (( Right_Arm <= ARM_BOUNDARY ) && ( Right_Arm >= -ARM_BOUNDARY )) ? 0 : ( Right_Arm > ARM_BOUNDARY ) ? -ARM_HOMING_SPEED : ARM_HOMING_SPEED;					//Right_Arm*Arm_Prop_Factor ;
 		Pitch_Arm_Speed = (( Pitch_Arm <= ARM_BOUNDARY ) && ( Pitch_Arm >= -ARM_BOUNDARY )) ? 0 : ( Pitch_Arm > ARM_BOUNDARY )? ARM_HOMING_SPEED :  -ARM_HOMING_SPEED;					//Pitch_Arm_Speed*Arm_Prop_Factor ;
 
 		First_Sense = 0; Sensed_Count =0;
+		
+		
+	//	if ( L_Arm_Speed > 0 && Left_Arm < -ARM_MAX) { L_Arm_Speed = 0; }// ---> LEFT ARM BOTTOM LIMIT 
+  //		if ( L_Arm_Speed < 0 && Left_Arm > ARM_MIN ) { L_Arm_Speed = 0; }// ---> LEFT ARM TOP LIMIT 
+//			
+//	if( L_Arm_Speed_Temp != L_Arm_Speed )
+//		{
+//			Set_Motor_Velocity (L_Arm , L_Arm_Speed );	
+//			L_Arm_Speed_Temp = L_Arm_Speed ;
+//		}
 	}
 	else if ( Mode == 3 )
 	{
@@ -1435,13 +1445,13 @@ void Top_Flap_Sensing (void)
 			R_Arm_Speed = R_Arm_Speed > A_LIMIT ? A_LIMIT : R_Arm_Speed < -A_LIMIT ? -A_LIMIT  : R_Arm_Speed;
 			Pitch_Arm_Speed = Pitch_Arm_Speed > A_LIMIT ? A_LIMIT : Pitch_Arm_Speed < -A_LIMIT ? -A_LIMIT : Pitch_Arm_Speed;
 			
-			if ( L_Arm_Speed > 0 && Left_Arm < -ARM_MAX) { L_Arm_Speed = 0; }// ---> LEFT ARM BOTTOM LIMIT 
-  		if ( L_Arm_Speed < 0 && Left_Arm > ARM_MIN ) { L_Arm_Speed = 0; }// ---> LEFT ARM TOP LIMIT 
+			if ( L_Arms_Speed > 0 && Left_Arm < -ARM_MAX) { L_Arms_Speed = 0; }// ---> LEFT ARM BOTTOM LIMIT 
+  		if ( L_Arms_Speed < 0 && Left_Arm > ARM_MIN ) { L_Arms_Speed = 0; }// ---> LEFT ARM TOP LIMIT 
 			
-	if( L_Arm_Speed_Temp != L_Arm_Speed )
+	if( L_Arm_Speed_Temp != L_Arms_Speed )
 		{
-			Set_Motor_Velocity (L_Arm , L_Arm_Speed );	
-			L_Arm_Speed_Temp = L_Arm_Speed ;
+			Set_Motor_Velocity (L_Arm , L_Arms_Speed );	
+			L_Arms_Speed_Temp = L_Arms_Speed ;
 		}
 //		
 			if ( R_Arm_Speed > 0 && Right_Arm > ARM_MAX) 	{ R_Arm_Speed = 0; }// ---> RIGHT ARM BOTTOM LIMIT 
@@ -1560,16 +1570,17 @@ void Rover_Resizer (void)
 			 Encoder Checks
 			*/
 			
-			Width_Total_Turns = Width_Stored_Value + Width_Int;
-			
-			Width_Speed = (( Width_Speed > 0) && Width_Total_Turns > 400 )? 0  : (( Width_Speed < 0) && Width_Total_Turns < 0) ? 0 : Width_Speed;
-			
+//			Width_Total_Turns = Width_Stored_Value + Width_Int;
+//			
+//			Width_Speed = (( Width_Speed > 0) && Width_Total_Turns > 400 )? 0  : (( Width_Speed < 0) && Width_Total_Turns < 0) ? 0 : Width_Speed;
+//			
 			
 			if ( Width_Speed_Temp != Width_Speed )
 			{
 				if(Width_Speed != 0)
 				{
-				 for( uint8_t i=1; i < 5; i++ ) { Set_Motor_Torque(i, 5); }
+				 if ( Steering_Mode == 1) for( uint8_t i=1; i < 5; i++ ) { Set_Motor_Torque(i, 5); }
+				 else if ( Steering_Mode == 2) for( uint8_t i=1; i < 5; i++ ) { Set_Motor_Torque(i, -5); }
 				 Set_Motor_Velocity ( 8 , Width_Speed );
 				}
 				
