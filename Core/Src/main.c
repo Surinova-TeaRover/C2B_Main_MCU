@@ -137,7 +137,7 @@ float Left_Vel_Limit = 1, Right_Vel_Limit = 1, Left_Reduced_Speed = 0, Right_Red
 float  Right_Vel_Limit_Temp = 1, Left_Prev_Vel_Limit = 1, Right_Prev_Vel_Limit = 1, Left_Reduced_Speed_Temp = 0, Right_Reduced_Speed_Temp = 0;
 /*																								ARM DEFINITIONS																							*/		
 float L_Arm_Speed=0, R_Arm_Speed=0, L_Arm_Speed_Temp=0, R_Arm_Speed_Temp=0, Pitch_Arm_Speed=0, Pitch_Arm_Speed_Temp=0;
-uint8_t L_Arm=12, R_Arm=13, P_Arm=14;
+uint8_t L_Arm=5, R_Arm=6, P_Arm=7;
 float Left_Arm_Error=0, Right_Arm_Error=0, Pitch_Arms_Error=0;
 //int Left_Target=18+Z-5, Right_Target=15+Z-5, Pitch_Target=15+Z, Flap_Target=30;//p=20+Z, l=18+z, r=20+z
 int Left_Target=10+Z, Right_Target=13+Z-5, Pitch_Target=8+Z, Flap_Target=30;//p=20+Z, l=18+z, r=20+z
@@ -147,7 +147,7 @@ uint16_t Left_Arm_Raw=0, Right_Arm_Raw =0 , Pitch_Arm_Raw=0;
 uint16_t Left_Arm_Limit = 0 ,	Right_Arm_Limit =0 , Pitch_Arm_Limit=0; 
 _Bool Flap_Sensed = 1 , Switch_Shearing = 0, Sensing_Switch=1, Shearing_Sensed = 0;
 uint8_t ARM_BOUNDARY =2 , Arm_Prop_Factor=1;
-uint16_t LA_Home_Pos = 348, RA_Home_Pos= 491, PA_Home_Pos = 618;
+uint16_t LA_Home_Pos = 348, RA_Home_Pos= 491, PA_Home_Pos = 409;
 /*																								ARM DEFINITIONS																							*/	
 /*																TOP SENSOR DEFINITIONS																							*/
 uint16_t Left_Enc_Zero_Pos=289, Right_Enc_Zero_Pos=445, Pitch_Enc_Zero_Pos=703, Flap_Enc_Zero_Pos=125;
@@ -167,6 +167,16 @@ float Width_Abs=0;
 int Width_Int =0, Width_Int_Temp=0;
 uint32_t Width_Address_1 = 0x08008000, Width_Address_2 =0x0800C000 ;
 int Width_Read_1 = 0, Width_Read_2 = 0, Width_Stored_Value=0, Width_Total_Turns=0;
+
+	_Bool Front_Left_Bush = 0, Front_Right_Bush = 0, Front_Bushes_Sensed = 0, First_Sense=0 , Rear_Bush=0;
+float FL_Angle=0, FR_Angle=0, RL_Angle =0, RR_Angle=0;
+int Flaps_Target = 40-20, Sensed_Count=0 ;
+	float Flap_Kp = 3, Pitch_Kp=1 ; //3,2
+	
+	uint16_t FL_Home_Pos = 468 , FR_Home_Pos = 0, RL_Home_Pos = 0, RR_Home_Pos = 0;
+float FL_Raw =0, FR_Raw = 0, RL_Raw = 0, RR_Raw = 0;
+
+
 
 
 /* USER CODE END PV */
@@ -197,11 +207,13 @@ void Rover_Resizer (void);
 void Error_Healing(void);
 void Drives_Error_Check(void);
 void Stop_Motors(void);
+void Top_Flap_Sensing (void);
+
 
 extern void Flash_Erase(uint32_t address);
 extern void Flash_Write(uint32_t Address, int Data);
 int16_t Flash_Read(uint32_t address);
-void New_Skid_Turn(void);
+void New_Drive_Controls(void);
 void Manual_Controls (void);
 
 /* USER CODE END PFP */
@@ -326,6 +338,12 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
 		Pitch_Arm_Raw =CAN_SPI_READ(RxData); 			
 		Pitch_Arm = New_Sensor_Pos(Pitch_Arm_Raw, PA_Home_Pos );
 	}
+	if (RxHeader.StdId == 0x017 )
+	{
+		Node_Id[15]++;
+		FL_Raw =CAN_SPI_READ(RxData);
+		FL_Angle = New_Sensor_Pos(FL_Raw, FL_Home_Pos );
+	}
 	
 	
 	else
@@ -437,7 +455,7 @@ for(uint8_t i=5; i < 11; i++){Start_Calibration_For( i , 8 , 5); HAL_Delay(10);}
 //	HAL_TIM_Base_Start_IT(&htim14); 
 //	Start_Calibration_For( 18 , 8 , 5);
 	BUZZER_OFF;
-	HAL_Delay(500);
+//	HAL_Delay(500);
 //	Voltage[0]=0;
 //		Voltage[1]=0;
 //		Voltage[2]=0x48;
@@ -457,7 +475,9 @@ for(uint8_t i=5; i < 11; i++){Start_Calibration_For( i , 8 , 5); HAL_Delay(10);}
 					Shearing_Motors();
 
 		if(DRIVES_NO_ERROR_FLAG)
-		{		//	New_Skid_Turn();
+		{		
+			Top_Flap_Sensing();
+				New_Drive_Controls();
 //			Manual_Controls();
 //		Drive_Wheel_Controls();
 //	  Rover_Resizer();
@@ -848,12 +868,12 @@ void Joystick_Reception(void)
 	
 	if (( BT_Rx[0] == 0xAA ) &&	( BT_Rx[7] == 0xFF ))
 	{	
-		Mode 						 = BT_Rx[1];
+		Mode 						 = BT_Rx[6];
 		Speed 					 = BT_Rx[2]  != 0 ? BT_Rx[2] : Speed ;	
 		Steering_Mode 	 = BT_Rx[3];
 		Pot_Angle 			 = BT_Rx[4]; 
 		Joystick 				 = BT_Rx[5];
-		Shearing				 = BT_Rx[6];
+		Shearing				 = BT_Rx[1];
 	}	
 
 	/*				JOYSTICK VALUES ASSIGNING								*/
@@ -1328,6 +1348,120 @@ void Arm_Controls (void)
 		
 }
 
+void Top_Flap_Sensing (void)
+{
+
+	Front_Left_Bush  =  FL_Angle > 10 ? 1 : 0;
+	Front_Right_Bush =  FR_Angle > 20 ? 1 : 0;
+	Rear_Bush = RL_Angle > 20 && RR_Angle > 20 ? 1 : 0;
+
+	//if ( Front_Left_Bush  && Front_Right_Bush ) Front_Bushes_Sensed = SET;
+	if ( Front_Left_Bush  ) Front_Bushes_Sensed = SET;
+	else Front_Bushes_Sensed = NULL;
+	
+	
+	if ( Mode != 3)  // Semi-Auto Homing
+	{
+		L_Arm_Speed 		= (( Left_Arm <= ARM_BOUNDARY )  && ( Left_Arm >= -ARM_BOUNDARY ))  ? 0 : ( Left_Arm > ARM_BOUNDARY ) ? ARM_HOMING_SPEED  : -ARM_HOMING_SPEED;					//Left_Arm*Arm_Prop_Factor ;	
+		R_Arm_Speed 		= (( Right_Arm <= ARM_BOUNDARY ) && ( Right_Arm >= -ARM_BOUNDARY )) ? 0 : ( Right_Arm > ARM_BOUNDARY ) ? -ARM_HOMING_SPEED : ARM_HOMING_SPEED;					//Right_Arm*Arm_Prop_Factor ;
+		Pitch_Arm_Speed = (( Pitch_Arm <= ARM_BOUNDARY ) && ( Pitch_Arm >= -ARM_BOUNDARY )) ? 0 : ( Pitch_Arm > ARM_BOUNDARY )? ARM_HOMING_SPEED :  -ARM_HOMING_SPEED;					//Pitch_Arm_Speed*Arm_Prop_Factor ;
+
+		First_Sense = 0; Sensed_Count =0;
+	}
+	else if ( Mode == 3 )
+	{
+		if ( Front_Bushes_Sensed ) First_Sense = 1 ; 
+		
+		if ( (!First_Sense) && ( !Front_Bushes_Sensed ))  // Go Down To Sense the Bush
+		{	
+			L_Arm_Speed			= ARM_HOMING_SPEED ; 
+			R_Arm_Speed 		= ARM_HOMING_SPEED ; 
+			Pitch_Arm_Speed = ARM_HOMING_SPEED ;
+		}
+		
+		
+		
+		if ( First_Sense  ) // Bushes Detected at First
+		{	Sensed_Count++;
+			
+			Front_Right_Bush=0;
+			
+			L_Arm_Speed = Front_Left_Bush   == 1 ? ( Flaps_Target - FL_Angle ) * Flap_Kp : 0 ; 
+			L_Arm_Speed = ( Front_Left_Bush == 0 && Front_Right_Bush == 1 ) ? ( Flaps_Target - FR_Angle ) * Flap_Kp  : L_Arm_Speed ;
+			L_Arm_Speed = ( L_Arm_Speed > -5 && L_Arm_Speed < 5 ) ? 0 : L_Arm_Speed ; 
+			
+			R_Arm_Speed = Front_Right_Bush  == 1 ? ( Flaps_Target - FR_Angle ) * Flap_Kp : 0 ;
+			R_Arm_Speed = ( Front_Right_Bush == 0 && Front_Left_Bush == 1 ) ? ( Flaps_Target - FL_Angle ) * Flap_Kp  : R_Arm_Speed ;
+			R_Arm_Speed = ( R_Arm_Speed > -5 && R_Arm_Speed < 5 ) ? 0 : R_Arm_Speed ; 	
+
+			Pitch_Arm_Speed = L_Arm_Speed;
+//			if ( Sensed_Count > 10 )Pitch_Arm_Speed = 0;
+//			Pitch_Error = (Flaps_Target - RL_Angle) + (Flaps_Target - RR_Angle) ; 
+//			if ( Sensed_Count < 10000000 )Pitch_Arm_Speed = 0;
+
+			/*if ( Front_Bushes_Sensed )
+			{ 
+				Pitch_Error = (Flaps_Target - RL_Angle) + (Flaps_Target - RR_Angle) ;	
+				Pitch_Arm_Speed = Pitch_Error * Pitch_Kp  ;
+				Pitch_Arm_Speed = (  ( !Rear_Bush ) || (Pitch_Arm_Speed > -7 && Pitch_Arm_Speed < 7))  ? 0 : Pitch_Arm_Speed ;  
+			}
+			else Pitch_Arm_Speed = ( Front_Left_Bush == 0 && Front_Right_Bush == 1 ) ? ( Flaps_Target - FR_Angle ) * Flap_Kp  : ( Front_Right_Bush == 0 && Front_Left_Bush == 1 ) ? ( Flaps_Target - FL_Angle ) * Flap_Kp  : 0;
+			Pitch_Arm_Speed = Pitch_Arm_Speed > 15 ? 15 : Pitch_Arm_Speed < -15 ? -15 : Pitch_Arm_Speed;*/
+		}
+		
+		if ( First_Sense && !Front_Left_Bush && !Front_Right_Bush )  // Bushes Sensed at First and Gap Detected while Running
+		{
+
+		L_Arm_Speed 		= (( Left_Arm <= ARM_BOUNDARY )  && ( Left_Arm >= -ARM_BOUNDARY ))  ? 0 : ( Left_Arm > ARM_BOUNDARY ) ? ARM_HOMING_SPEED  : -ARM_HOMING_SPEED;					//Left_Arm*Arm_Prop_Factor ;	
+		R_Arm_Speed 		= (( Right_Arm <= ARM_BOUNDARY ) && ( Right_Arm >= -ARM_BOUNDARY )) ? 0 : ( Right_Arm > ARM_BOUNDARY ) ? -ARM_HOMING_SPEED : ARM_HOMING_SPEED;					//Right_Arm*Arm_Prop_Factor ;
+		Pitch_Arm_Speed = (( Pitch_Arm <= ARM_BOUNDARY ) && ( Pitch_Arm >= -ARM_BOUNDARY )) ? 0 : ( Pitch_Arm > ARM_BOUNDARY )? ARM_HOMING_SPEED :  -ARM_HOMING_SPEED;					//Pitch_Arm_Speed*Arm_Prop_Factor ;
+
+		}
+	}
+	else{}
+/*
+	Roll_Angle = Left_Arm - Right_Arm;
+	
+	if( Roll_Angle > 50 || Roll_Angle < -50  )
+	{
+		L_Arm_Speed = L_Arm_Speed > 0 && Roll_Angle > 50 ? L_Arm_Speed = 0 : L_Arm_Speed < 0 && Roll_Angle < -50 ? L_Arm_Speed = 0 : L_Arm_Speed;
+		R_Arm_Speed = R_Arm_Speed > 0 && Roll_Angle > 50 ? R_Arm_Speed = 0 : R_Arm_Speed < 0 && Roll_Angle < -50 ? R_Arm_Speed = 0 : R_Arm_Speed;
+//	L_Arm_Speed = R_Arm_Speed = 0;
+	}
+*/
+			
+			
+			L_Arm_Speed = L_Arm_Speed > A_LIMIT ? A_LIMIT : L_Arm_Speed < -A_LIMIT ? - A_LIMIT : L_Arm_Speed;
+			R_Arm_Speed = R_Arm_Speed > A_LIMIT ? A_LIMIT : R_Arm_Speed < -A_LIMIT ? -A_LIMIT  : R_Arm_Speed;
+			Pitch_Arm_Speed = Pitch_Arm_Speed > A_LIMIT ? A_LIMIT : Pitch_Arm_Speed < -A_LIMIT ? -A_LIMIT : Pitch_Arm_Speed;
+			
+			if ( L_Arm_Speed > 0 && Left_Arm < -ARM_MAX) { L_Arm_Speed = 0; }// ---> LEFT ARM BOTTOM LIMIT 
+  		if ( L_Arm_Speed < 0 && Left_Arm > ARM_MIN ) { L_Arm_Speed = 0; }// ---> LEFT ARM TOP LIMIT 
+			
+	if( L_Arm_Speed_Temp != L_Arm_Speed )
+		{
+			Set_Motor_Velocity (L_Arm , L_Arm_Speed );	
+			L_Arm_Speed_Temp = L_Arm_Speed ;
+		}
+//		
+			if ( R_Arm_Speed > 0 && Right_Arm > ARM_MAX) 	{ R_Arm_Speed = 0; }// ---> RIGHT ARM BOTTOM LIMIT 
+			if ( R_Arm_Speed < 0 && Right_Arm < ARM_MIN ) 	{ R_Arm_Speed = 0; }// ---> RIGHT ARM TOP LIMIT
+		
+		if( R_Arm_Speed_Temp != R_Arm_Speed )
+		{
+			Set_Motor_Velocity (R_Arm , R_Arm_Speed );	
+			R_Arm_Speed_Temp = R_Arm_Speed ;
+		}
+		
+		if ( Pitch_Arm_Speed > 0 && Pitch_Arm < -ARM_MAX) 	{ Pitch_Arm_Speed = 0; }// ---> PITCH ARM BOTTOM LIMIT   // -2
+		if ( Pitch_Arm_Speed < 0 && Pitch_Arm > ARM_MIN ) 	{ Pitch_Arm_Speed = 0; }// ---> PITCH ARM TOP LIMIT// 25 deg val
+		if( Pitch_Arm_Speed_Temp != Pitch_Arm_Speed ) 
+		{
+			Set_Motor_Velocity (P_Arm , Pitch_Arm_Speed );	
+			Pitch_Arm_Speed_Temp = Pitch_Arm_Speed ;
+		}
+}
+
 void Flap_Sensing(void)
 {
 	if ( Shearing_Sensed )
@@ -1511,7 +1645,7 @@ void Error_Healing(void)
 	BUZZER_OFF;
 }
 
-void New_Skid_Turn(void)
+void New_Drive_Controls(void)
 {
 	
 	if ( (Speed!= 0) && (BT_State) && Mode != 2 )
