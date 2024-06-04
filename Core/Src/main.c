@@ -374,6 +374,74 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
 		}
 	}
 }
+void CAN2_Reception (void)
+{
+	HAL_CAN_GetRxMessage(&hcan2, CAN_RX_FIFO0, &RxHeader, RxData);
+	cantest++;
+	
+	Received_Node_Id = RxHeader.StdId >> 5;
+	Received_Command_Id = RxHeader.StdId & CMD_MASK;
+		
+	if (RxHeader.StdId == 0x005 )
+	{
+		Node_Id[12]++;
+		Left_Arm_Raw =CAN_SPI_READ(RxData); 			
+		Left_Arm = New_Sensor_Pos(Left_Arm_Raw, LA_Home_Pos );
+	}
+	
+	if (RxHeader.StdId == 0x006 )
+	{
+		Node_Id[13]++;
+		Right_Arm_Raw =CAN_SPI_READ(RxData); 			
+		Right_Arm = New_Sensor_Pos(Right_Arm_Raw, RA_Home_Pos );
+	}
+	
+	if (RxHeader.StdId == 0x007 )
+	{
+		Node_Id[14]++;
+		Pitch_Arm_Raw =CAN_SPI_READ(RxData); 			
+		Pitch_Arm = New_Sensor_Pos(Pitch_Arm_Raw, PA_Home_Pos );
+	}
+	if (RxHeader.StdId == 0x017 )
+	{
+		Node_Id[15]++;
+		FL_Raw =CAN_SPI_READ(RxData);
+		FL_Angle = New_Sensor_Pos(FL_Raw, FL_Home_Pos );
+	}
+	
+	
+	else
+	{
+		switch( Received_Command_Id )	
+		{
+			case HEARTBEAT:  							Node_Id[Received_Node_Id]++;    Axis_State[Received_Node_Id] = RxData[4]; break;//memcpy(&Error_Status[Received_Node_Id], RxData2, 4); Axis_State[Received_Node_Id] = RxData2[4];
+			
+			case ENEST_ID:  							Motor_Velocity[Received_Node_Id]	= CAN_Reception(MSB); Absolute_Position_Reception (	Received_Node_Id );						break;		
+
+			case SENS_EST:  							Motor_Velocity[Received_Node_Id]	= CAN_Reception(MSB); 				  		break;
+			
+			case MERR_ID:  								Motor_Error[Received_Node_Id]			= CAN_Reception(MSB); 							break;
+			
+			case ENERR_ID:  							Encoder_Error[Received_Node_Id]		= CAN_Reception(MSB); 					 		break;
+			
+			case SNERR_ID:  							Encoder_Error[Received_Node_Id]		= CAN_Reception(LSB); 					  	break;
+			
+			case IQM_ID:  								Motor_Current[Received_Node_Id]		= CAN_Reception(MSB); 					  	break;
+			
+			case VOLTAGE: 								memcpy(&Volt, RxData, 4);	  break;
+			
+//			case 0x261: Node_Id[19]++; break;
+//		  case 0x281: Node_Id[20]++; break;
+		
+			default: 																																													  break;
+
+		}
+	}
+
+
+
+
+}
 
 /* USER CODE END 0 */
 
@@ -405,7 +473,7 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
-  MX_CAN1_Init();
+//  MX_CAN1_Init();
   MX_CAN2_Init();
 //  MX_UART4_Init();
 //  MX_UART5_Init();
@@ -418,7 +486,7 @@ int main(void)
 	
 	
 
-	HAL_Delay(3000);
+	HAL_Delay(5000);
 	
 	MX_UART4_Init();
   MX_UART5_Init();
@@ -429,9 +497,10 @@ int main(void)
 //	Start_Calibration_For( 2 , 3 , 1); HAL_Delay(10000);
 //	HAL_Delay(2000);
 //	for(uint8_t i=1; i < 5; i++){Start_Calibration_For( i , 8 , 5); HAL_Delay(100);}
-HAL_Delay(2000);	
+//HAL_Delay(2000);	
 for(uint8_t i=5; i < 11; i++){Start_Calibration_For( i , 8 , 5); HAL_Delay(10);}
-	for(uint8_t i=17; i < 21; i++){Start_Calibration_For( i , 8 , 10); HAL_Delay(500);}
+
+//	for(uint8_t i=17; i < 21; i++){Start_Calibration_For( i , 8 , 10); HAL_Delay(500);}
 
 //	for ( uint8_t i=1 ; i < 10 ; i++ )
 //		{
@@ -466,25 +535,26 @@ for(uint8_t i=5; i < 11; i++){Start_Calibration_For( i , 8 , 5); HAL_Delay(10);}
   /* USER CODE BEGIN WHILE */
   while (1)
   {		BT_State = BT_READ;Joystick_Reception();
-		Drives_Error_Check();
+	Drives_Error_Check();
+	//	CAN2_Reception();
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
 //		UART_Reception();
 		
-					Shearing_Motors();
+		Shearing_Motors();
 
 		if(DRIVES_NO_ERROR_FLAG)
 		{		
-//			Top_Flap_Sensing();
+			Top_Flap_Sensing();
 	  	New_Drive_Controls();
 			Rover_Resizer();
 			
-			Manual_Controls();
+//			Manual_Controls();
 	  
 		}
 	  else{Error_Healing();}
-			
+//			
 			
 			
 //		Joystick_Reception();
@@ -1362,7 +1432,7 @@ void Top_Flap_Sensing (void)
 	
 	if ( Mode != 3)  // Semi-Auto Homing
 	{
-		L_Arms_Speed 		= (( Left_Arm <= ARM_BOUNDARY )  && ( Left_Arm >= -ARM_BOUNDARY ))  ? 0 : ( Left_Arm > ARM_BOUNDARY ) ? ARM_HOMING_SPEED  : -ARM_HOMING_SPEED;					//Left_Arm*Arm_Prop_Factor ;	
+		L_Arm_Speed 		= (( Left_Arm <= ARM_BOUNDARY )  && ( Left_Arm >= -ARM_BOUNDARY ))  ? 0 : ( Left_Arm > ARM_BOUNDARY ) ? ARM_HOMING_SPEED  : -ARM_HOMING_SPEED;					//Left_Arm*Arm_Prop_Factor ;	
 		R_Arm_Speed 		= (( Right_Arm <= ARM_BOUNDARY ) && ( Right_Arm >= -ARM_BOUNDARY )) ? 0 : ( Right_Arm > ARM_BOUNDARY ) ? -ARM_HOMING_SPEED : ARM_HOMING_SPEED;					//Right_Arm*Arm_Prop_Factor ;
 		Pitch_Arm_Speed = (( Pitch_Arm <= ARM_BOUNDARY ) && ( Pitch_Arm >= -ARM_BOUNDARY )) ? 0 : ( Pitch_Arm > ARM_BOUNDARY )? ARM_HOMING_SPEED :  -ARM_HOMING_SPEED;					//Pitch_Arm_Speed*Arm_Prop_Factor ;
 
@@ -1445,13 +1515,13 @@ void Top_Flap_Sensing (void)
 			R_Arm_Speed = R_Arm_Speed > A_LIMIT ? A_LIMIT : R_Arm_Speed < -A_LIMIT ? -A_LIMIT  : R_Arm_Speed;
 			Pitch_Arm_Speed = Pitch_Arm_Speed > A_LIMIT ? A_LIMIT : Pitch_Arm_Speed < -A_LIMIT ? -A_LIMIT : Pitch_Arm_Speed;
 			
-			if ( L_Arms_Speed > 0 && Left_Arm < -ARM_MAX) { L_Arms_Speed = 0; }// ---> LEFT ARM BOTTOM LIMIT 
-  		if ( L_Arms_Speed < 0 && Left_Arm > ARM_MIN ) { L_Arms_Speed = 0; }// ---> LEFT ARM TOP LIMIT 
+			if ( L_Arm_Speed > 0 && Left_Arm < -ARM_MAX) { L_Arm_Speed = 0; }// ---> LEFT ARM BOTTOM LIMIT 
+  		if ( L_Arm_Speed < 0 && Left_Arm > ARM_MIN ) { L_Arm_Speed = 0; }// ---> LEFT ARM TOP LIMIT 
 			
-	if( L_Arm_Speed_Temp != L_Arms_Speed )
+	if( L_Arm_Speed_Temp != L_Arm_Speed )
 		{
-			Set_Motor_Velocity (L_Arm , L_Arms_Speed );	
-			L_Arms_Speed_Temp = L_Arms_Speed ;
+			Set_Motor_Velocity (L_Arm , L_Arm_Speed );	
+			L_Arm_Speed_Temp = L_Arm_Speed ;
 		}
 //		
 			if ( R_Arm_Speed > 0 && Right_Arm > ARM_MAX) 	{ R_Arm_Speed = 0; }// ---> RIGHT ARM BOTTOM LIMIT 
